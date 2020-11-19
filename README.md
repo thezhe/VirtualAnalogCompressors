@@ -1,2 +1,3 @@
 # VirtualAnalogCompressors
-Musical Virtual Analog Dynamic Range Compressors -- Designed with a Grey Box Approach
+Papers and Explaination:
+http://spatialaudio.digitalscholar.rochester.edu/audiosoftwaredesign1fall2020/audiosoftwaredesignvirtualsymposium/musical-va-compressors/
