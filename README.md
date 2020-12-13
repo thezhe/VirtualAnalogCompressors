@@ -1,5 +1,3 @@
-Zhe Deng 12/3: I plan to upload my code to a Github repo, but below are notes regarding implementation of the ideas on the blog.
-
 # VirtualAnalogCompressors
 
 [Website and Paper](spatialaudio.digitalscholar.rochester.edu/audiosoftwaredesign1fall2020/audiosoftwaredesignvirtualsymposium/musical-va-compressors/)
