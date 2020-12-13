@@ -1,0 +1,64 @@
+\textsl{(2.1)} : y(t) = g(x(t))x(t)
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\begin{align*}
+
+&\textsl{(2.2)}: SR(s) = \frac{1}{s}H(s) = \frac{\omega_c}{s(s+\omega_c)} \\
+&= \frac{A}{s} + \frac{B}{s+\omega_c} = \frac{1}{s} - \frac{1}{s+\omega_c} 
+
+\end{align*}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\textsl{(2.3)}: sr(t) = \mathcal{L}^{-1} \left [ \frac{1}{s} - \frac{1}{s+\omega_c} \right ] 
+= (1 - e^{-\omega_ct})u(t)
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\textsl{(2.4)} : ctf(x_{dB}) = \left\{\begin{matrix}
+x_{dB}, & x_{dB}\leq thrdB\\ 
+thrdB+\frac{x_{dB}-thrdB}{ratio},& otherwise
+\end{matrix}\right.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\begin{matrix}
+\textsl{(3.1)} : H(s) = \frac{Y(s)}{X(s)} = \frac{\omega_c}{\omega_c+s} \\
+Y(s) (\omega_c+s) = X(s)\omega_c\\
+sY(s) = \omega_c(X(s)-Y(s))\\
+\dot{y} = \omega_c(t)(x(t)-y(t))
+\end{matrix}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\textsl{(3.2)} : y(t) = \int_{t}^{t_0}\omega_c(\tau)(x(\tau)-y(\tau))d\tau
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\textsl{(3.3)}: g(x) = \frac{dB2G(ctf(g2dB(x)))}{x} 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\begin{align*}
+
+&\textsl{(3.4)}: F(x_s) = \frac{10^{\frac{thrdB + \frac{20log_{10}(x_s)-thrdB}{ratio}}{20}}}{x_s}\\
+&= \frac{10^{\frac{thrdB}{20}}    10^{\frac{log_{10}(x_s)}{ratio}} } {x_s 10^{\frac{thrdB}{20ratio}}}\\
+&= \frac{thrlin (x_s)^{\frac{1}{ratio}}}{x_s(thrlin)^(\frac{1}{ratio})}\\
+&= x_s^{\frac{1}{ratio}-1}thrlin^{1-\frac{1}{ratio}}\\
+&= \frac{x_s}{thrlin}^{\frac{1}{ratio}-1}
+\end{align*}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\textsl{(3.2)}: 
+f(x_s) = 
+\left\{\begin{matrix}
+
+1, & x_s \leq thrlin\\ 
+\left (  \frac{x_s}{thrlin} \right )^{\frac{1}{ratio}-1}, & x_s > thrlin 
+
+\end{matrix}\right.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\textsl{(5.1)} : y(t) = g(y(t))x(t)
