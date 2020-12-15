@@ -10,12 +10,13 @@
 .history/
 
 
-##Project Specific
-test.c
+##VirtualAnalogCompressors project files
 *.def
 *.wav
 lib/
 include/
+test/
+samples/
 
 
 ##https://github.com/github/gitignore/blob/master/C.gitignore

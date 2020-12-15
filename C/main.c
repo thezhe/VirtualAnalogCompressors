@@ -1,6 +1,6 @@
 /**
  * Zhe Deng 2020
- * Example driver code for VCA using tinywav
+ * Example driver code for VCA using libsndfile
  * Given an infile and user parameters, outputs filtered sound with "_VCA" added to the name
  * * Sample Rate, Format, etc of output is the same as input
  * Compile (macOS): gcc -o main main.c VCA.c -lsndfile
@@ -16,7 +16,7 @@
 
 #define NFRAMES (1024) //frames per buffer
 
-enum ARGS { ARG_NAME, ARG_INFILE, ARG_THRDB, ARG_RATIO, ARG_ATTACK, ARG_RELEASE, ARG_NARGS};
+enum ARGS { ARG_NAME, ARG_INFILE, ARG_TYPE, ARG_THRDB, ARG_RATIO, ARG_ATTACK, ARG_RELEASE, ARG_NARGS};
 
 /**
  * Concatenate the file name in a file path
@@ -48,6 +48,7 @@ char* catFileName(char* file, char* cat)
 
 int main(int argc, char* argv[])
 {
+    //libsndfile
     SNDFILE * infile = NULL ;  // input sound file pointer
     SNDFILE * outfile = NULL;  // output sound file pointer
     SF_INFO   sfinfo;          // sound file info
@@ -55,18 +56,41 @@ int main(int argc, char* argv[])
     long readcount;            // no. of samples read
     float * buffer = NULL;     // buffer pointer (a dynamic array of floats)
 
-    //User parameters
+    //VCA
+    float (*VCA_tick)(float, VCAstate*, VCAparams*);
+
+    //user parameters
     float thrdB, ratio, attack, release;
+    int type;
 
     #pragma region user parameters, input validation
     //nargs
     if (argc!=ARG_NARGS)
     {
-        printf("Usage: ./%s infile thrdB ratio attack release", argv[ARG_NAME]);
+        printf("Usage: ./%s infile type thrdB ratio attack release\n", argv[ARG_NAME]);
+        printf("type: 1=FFVCA_DE, 2=FFVCA_TPT, 2=FBVCA_TPT_z\n");
         return EXIT_FAILURE;
     }
     //number of non-narg errors
     int nErr = 0;
+    //type
+    type = atoi(argv[ARG_TYPE]);
+    switch (type)
+    {
+    case 1:
+        VCA_tick = VCA_tickFFVCA_DE;
+        break;
+    case 2:
+        VCA_tick = VCA_tickFFVCA_TPT;
+        break;
+    case 3:
+        VCA_tick = VCA_tickFBVCA_TPT_z;
+        break;
+    default:
+        printf("Error: type must be in range [1,3]\n");
+        ++nErr;
+        break;
+    }
     //thrdB
     thrdB = atof(argv[ARG_THRDB]);
     if (thrdB<-60.f || thrdB>0.f)
@@ -131,7 +155,7 @@ int main(int argc, char* argv[])
     // processing
     while((readcount = sf_read_float(infile, buffer, nsamples)) > 0){
         for (int i=0; i<readcount; ++i)
-            buffer[i]=VCA_tickFFVCA(buffer[i], ste, prm);
+            buffer[i]=VCA_tick(buffer[i], ste, prm);
         sf_write_float(outfile, buffer, readcount);
     }
     
