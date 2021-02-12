@@ -68,7 +68,7 @@ int main(int argc, char* argv[])
     if (argc!=ARG_NARGS)
     {
         printf("Usage: ./%s infile type thrdB ratio attack release\n", argv[ARG_NAME]);
-        printf("type: 1=FFVCA_DE, 2=FFVCA_TPT, 2=FBVCA_TPT_z\n");
+        printf("type: 1=FFVCA_DE, 2=FFVCA_TPT, 3=FBVCA_TPT_z\n");
         return EXIT_FAILURE;
     }
     //number of non-narg errors
