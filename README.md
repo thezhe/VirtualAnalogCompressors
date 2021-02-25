@@ -46,13 +46,13 @@ The y coordinate of the discontinuity in (3.2) shifts by x. In the case of 'gy',
 
 ![3.7](Images/3_7.svg)
 
-As a result the f(y) coordinate changes by -x due to the addition of '-y' in (3.6). Therefore, the f(y) coordinate of the knee is s-x. More importantly, the condition to use g_a is s-x>0. The final algorithm is:
+As a result the f(y) coordinate changes by -x due to the addition of '-y' in (3.6). Therefore, the f(y) coordinate of the knee is s-x. More importantly, the condition to use g_a is s-x<0. The final algorithm is:
 
 //Ga = ga/(1+ga),
 
 //Gr = gr/(1+gr)  
 
-G = (s>x)?Ga:Gr;
+G = (s<x)?Ga:Gr;
 
 v = (x-s)*G;
 
@@ -71,3 +71,5 @@ s = y+v;
 [FFVCA TPT](https://soul.dev/lab/?id=e0728f3e5ca6979ef1b22ce17f7af129)
 
 Feedback VCA
+
+[FFVCA](https://soul.dev/lab/?id=6595080f06b19b8141a752e23204ae50)
