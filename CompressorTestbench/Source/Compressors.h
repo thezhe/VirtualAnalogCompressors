@@ -17,27 +17,27 @@ class Compressor
 {
 public:
 
-    //model-specific methods
-    virtual void setAttack(float attackMs) noexcept = 0;
-    virtual void setRelease(float releaseMs) noexcept = 0;
-    virtual void prepare(const double sampleRate, const int samplesPerBlock) = 0;
-    virtual void process(float* buffer) noexcept = 0;
-
     //common methods
     void setThreshold(float thrdB) noexcept;
     void setRatio(float ratioR) noexcept;
 
+    //model-specific methods
+    virtual void prepare(const double sampleRate, const int samplesPerBlock) = 0;
+    virtual void process(float* buffer) noexcept = 0;
+    virtual void setAttack(float attackMs) noexcept = 0;
+    virtual void setRelease(float releaseMs) noexcept = 0;
+
 protected:
     
     //helper functions
-    float ctf(float x) { return powf(x / thrlin, exponent); }
+    float ctf(float x) noexcept { return powf(x/thrlin, exponent); }
 
     //parameters
-    float thrlin;
+    float thrlin = 1.f;
     float exponent;
 
     //spec
-    size_t blockSize;
+    size_t blockSize = 2;
 
     //state
     float rect, bf;
@@ -46,17 +46,18 @@ protected:
 class DECompressor : public Compressor
 {
 public:
+
+    void prepare(const double sampleRate, const int samplesPerBlock);
     void setAttack(float attackMs) noexcept;
     void setRelease(float releaseMs) noexcept;
-    void prepare(const double sampleRate, const int samplesPerBlock);
 
 protected:
 
     //parameters
-    float a_a, a_r;
+    float a_a = 0.5f, a_r = 0.5f;
 
     //spec
-    float T;
+    float T = 1.f;
 };
 
 class TPTCompressor : public Compressor
@@ -69,10 +70,10 @@ public:
 protected:
 
     //parameters
-    float Ga, Gr;
+    float Ga = 0.5f, Gr = 0.5f;
 
     //spec
-    float Tdiv2;
+    float Tdiv2 = 0.5f;
 
     //state
     float s;

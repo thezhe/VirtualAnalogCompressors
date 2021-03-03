@@ -93,16 +93,9 @@ void CompressorTestbenchAudioProcessor::changeProgramName (int index, const juce
 //==============================================================================
 void CompressorTestbenchAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
-  /*  ffvcaTrad.prepare(sampleRate, samplesPerBlock);
+    ffvcaTrad.prepare(sampleRate, samplesPerBlock);
     ffvcaTPTz.prepare(sampleRate, samplesPerBlock);
     ffvcaTPT.prepare(sampleRate, samplesPerBlock);
-    
-    ffvcaTPT.setAttack(75);
-    ffvcaTPT.setRelease(150);
-    ffvcaTPT.setThreshold(-50);
-    ffvcaTPT.setRatio(100);*/
-
-
 }
 
 void CompressorTestbenchAudioProcessor::releaseResources()
@@ -165,10 +158,10 @@ void CompressorTestbenchAudioProcessor::processBlock (juce::AudioBuffer<float>& 
         // ..do something to the data...
     }*/
     //ONLY PROCESS ONE CHANNEL
-  //  auto* channelData = buffer.getWritePointer(0);
+    auto* channelData = buffer.getWritePointer(0);
     switch (currentCompressor)
     {
-       /* case Trad:
+        case Trad:
             ffvcaTrad.process(channelData);
             break;
         case TPTz:
@@ -176,7 +169,7 @@ void CompressorTestbenchAudioProcessor::processBlock (juce::AudioBuffer<float>& 
             break;
         default:
             ffvcaTPT.process(channelData);
-            break;*/
+            break;
     }
 }
 

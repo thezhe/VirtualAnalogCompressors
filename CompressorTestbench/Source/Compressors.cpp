@@ -13,6 +13,11 @@ void Compressor::setThreshold(float thrdB) noexcept { thrlin = juce::Decibels::d
 
 void Compressor::setRatio(float ratioR) noexcept { exponent = (1.f / ratioR) - 1.f; }
 
+void TPTCompressor::prepare(const double sampleRate, const int samplesPerBlock)
+{
+    blockSize = samplesPerBlock;
+    Tdiv2 = 1.f / sampleRate;
+}
 
 void TPTCompressor::setAttack(float attackMs) noexcept 
 { 
@@ -28,11 +33,6 @@ void TPTCompressor::setRelease(float releaseMs) noexcept
     Gr = g / (1.f + g);
 }
 
-void TPTCompressor::prepare(const double sampleRate, const int samplesPerBlock)
-{
-    blockSize = samplesPerBlock;
-    Tdiv2 = 1.f/sampleRate;
-}
 
 
 void DECompressor::prepare(const double sampleRate, const int samplesPerBlock)

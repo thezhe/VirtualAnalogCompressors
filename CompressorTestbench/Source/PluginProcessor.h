@@ -61,9 +61,9 @@ public:
     }
 
     //Compressors
- //   FFVCA_Trad ffvcaTrad;
-   // FFVCA_TPTz ffvcaTPTz;
-    //FFVCA_TPT ffvcaTPT;
+    FFVCA_Trad ffvcaTrad;
+    FFVCA_TPTz ffvcaTPTz;
+    FFVCA_TPT ffvcaTPT;
 private:
     //parameters
     enum CurrentCompressor
@@ -73,9 +73,6 @@ private:
         TPT
     };
     CurrentCompressor currentCompressor = Trad;
-
-
-
     //==============================================================================
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(CompressorTestbenchAudioProcessor)
     
