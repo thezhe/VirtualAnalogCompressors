@@ -93,9 +93,23 @@ void CompressorTestbenchAudioProcessor::changeProgramName (int index, const juce
 //==============================================================================
 void CompressorTestbenchAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
+    /*zeros.setSize(juce::dsp::SIMDRegister<float>::size(), samplesPerBlock);
+    zeros.clear();
+    interleaved.setSize(1, samplesPerBlock);*/
     ffvcaTrad.prepare(sampleRate, samplesPerBlock);
     ffvcaTPTz.prepare(sampleRate, samplesPerBlock);
     ffvcaTPT.prepare(sampleRate, samplesPerBlock);
+    
+    ffvcaTradR.prepare(sampleRate, samplesPerBlock);
+    ffvcaTPTzR.prepare(sampleRate, samplesPerBlock);
+    ffvcaTPTR.prepare(sampleRate, samplesPerBlock);
+
+    fbvcaTrad.prepare(sampleRate, samplesPerBlock);
+    fbvcaTPTz.prepare(sampleRate, samplesPerBlock);
+
+    fbvcaTradR.prepare(sampleRate, samplesPerBlock);
+    fbvcaTPTzR.prepare(sampleRate, samplesPerBlock);
+
 }
 
 void CompressorTestbenchAudioProcessor::releaseResources()
@@ -135,42 +149,51 @@ void CompressorTestbenchAudioProcessor::processBlock (juce::AudioBuffer<float>& 
     juce::ScopedNoDenormals noDenormals;
     auto totalNumInputChannels  = getTotalNumInputChannels();
     auto totalNumOutputChannels = getTotalNumOutputChannels();
-
-    // In case we have more outputs than inputs, this code clears any output
-    // channels that didn't contain input data, (because these aren't
-    // guaranteed to be empty - they may contain garbage).
-    // This is here to avoid people getting screaming feedback
-    // when they first compile a plugin, but obviously you don't need to keep
-    // this code if your algorithm always overwrites all the output channels.
-    for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
-        buffer.clear (i, 0, buffer.getNumSamples());
-
-    // This is the place where you'd normally do the guts of your plugin's
-    // audio processing...
-    // Make sure to reset the state if your inner loop is processing
-    // the samples and the outer loop is handling the channels.
-    // Alternatively, you can process the samples with the channels
-    // interleaved by keeping the same state.
-    /*for (int channel = 0; channel < totalNumInputChannels; ++channel)
-    {
-        auto* channelData = buffer.getWritePointer (channel);
-
-        // ..do something to the data...
-    }*/
-    //ONLY PROCESS ONE CHANNEL
-    auto* channelData = buffer.getWritePointer(0);
+    //clear extra buffer channels
+    /*
+   //get channel pointers
+    for (size_t ch = 0; ch < juce::dsp::SIMDRegister<float>::size(); ++ch)
+        inout[ch] = ch < totalNumInputChannels ? buffer.getWritePointer(ch) :
+        zeros.getWritePointer(ch);
+    //interleave channel data
+    juce::AudioDataConverters::interleaveSamples(const_cast<float**> (inout),
+        reinterpret_cast<float*> (interleaved.getWritePointer(0)),
+        buffer.getNumSamples(),
+        static_cast<int> (juce::dsp::SIMDRegister<float>::size()));
+    //process
+    */
     switch (currentCompressor)
     {
-        case Trad:
-            ffvcaTrad.process(channelData);
+        case FF_TRAD:
+            ffvcaTrad.process(buffer.getWritePointer(0));
+            ffvcaTradR.process(buffer.getWritePointer(1));
             break;
-        case TPTz:
-            ffvcaTPTz.process(channelData);
+        case FF_TPTZ:
+            ffvcaTPTz.process(buffer.getWritePointer(0));
+            ffvcaTPTzR.process(buffer.getWritePointer(1));
+            break;
+        case FF_TPT:
+            ffvcaTPT.process(buffer.getWritePointer(0));
+            ffvcaTPTR.process(buffer.getWritePointer(1));
+            break;
+        case FB_TRAD:
+            fbvcaTrad.process(buffer.getWritePointer(0));
+            fbvcaTradR.process(buffer.getWritePointer(1));
             break;
         default:
-            ffvcaTPT.process(channelData);
+            fbvcaTPTz.process(buffer.getWritePointer(0));
+            fbvcaTPTzR.process(buffer.getWritePointer(1));
             break;
     }
+    /*
+    //deinterleave
+    juce::AudioDataConverters::deinterleaveSamples(
+        reinterpret_cast<float*>(interleaved.getWritePointer(0)),
+        inout,
+        buffer.getNumSamples(),
+        static_cast<int>(juce::dsp::SIMDRegister<float>::size())
+        );
+        */
 }
 
 //==============================================================================

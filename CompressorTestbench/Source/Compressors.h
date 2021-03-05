@@ -13,6 +13,7 @@
 
 #pragma region Abstract Classes
 
+//template <typename SampleType>
 class Compressor
 {
 public:
@@ -20,6 +21,9 @@ public:
     //common methods
     void setThreshold(float thrdB) noexcept;
     void setRatio(float ratioR) noexcept;
+    void setWet(float wetdB) noexcept;
+    void setDry(float drydB) noexcept;
+ 
 
     //model-specific methods
     virtual void prepare(const double sampleRate, const int samplesPerBlock) = 0;
@@ -30,11 +34,12 @@ public:
 protected:
     
     //helper functions
-    float ctf(float x) noexcept { return powf(x/thrlin, exponent); }
+    float ctf(float x) noexcept { return x < thrlin ? 1 : pow(x/thrlin, exponent); }
 
     //parameters
-    float thrlin = 1.f;
+    float thrlin = 1;
     float exponent;
+    float dryLin = 0, wetLin = 1;
 
     //spec
     size_t blockSize = 2;
@@ -43,7 +48,8 @@ protected:
     float rect, bf;
 };
 
-class DECompressor : public Compressor
+//template<typename SampleType>
+class DECompressor : public Compressor//<SampleType>
 {
 public:
 
@@ -60,7 +66,8 @@ protected:
     float T = 1.f;
 };
 
-class TPTCompressor : public Compressor
+//template<typename SampleType>
+class TPTCompressor : public Compressor//<SampleType>
 {
 public:
     void setAttack(float attackMs) noexcept;
@@ -81,7 +88,10 @@ protected:
 
 #pragma endregion
 
-class FFVCA_Trad : public DECompressor
+#pragma region Final Classes
+
+//template<typename SampleType>
+class FFVCA_Trad final : public DECompressor//<SampleType>
 {
 public:
     void process(float* buffer) noexcept
@@ -93,14 +103,14 @@ public:
             //ballistics filter
             float a = (rect < bf) ? a_r : a_a;
             bf = a * bf + (1.f - a) * rect;
-            //compressor transfer function
-            if (bf > thrlin)
-                buffer[i] *= ctf(bf);
+            //compressor transfer function and mixing
+            buffer[i] = dryLin * buffer[i] + wetLin * buffer[i] * ctf(bf);
         }
     }
 };
 
-class FFVCA_TPTz : public TPTCompressor
+//template<typename SampleType>
+class FFVCA_TPTz final : public TPTCompressor//<SampleType>
 {
 public:
     void process(float* buffer) noexcept
@@ -114,14 +124,14 @@ public:
             float v = (rect - s) * G;
             bf = v + s;
             s = bf + v;
-            //compressor transfer function
-            if (bf > thrlin)
-                buffer[i] *= ctf(bf);
+            //compressor transfer function and mixing
+            buffer[i] = dryLin * buffer[i] + wetLin * buffer[i] * ctf(bf);
         }
     }
 };
 
-class FFVCA_TPT : public TPTCompressor
+//template< typename SampleType >
+class FFVCA_TPT final : public TPTCompressor//<SampleType>
 {
 public:
     void process(float* buffer) noexcept
@@ -136,8 +146,66 @@ public:
             bf = v + s;
             s = bf + v;
             //compressor transfer function
-            if (bf > thrlin)
-                buffer[i] *= ctf(bf);
+            buffer[i] = dryLin * buffer[i] + wetLin * buffer[i] * ctf(bf);
         }
     }
 };
+
+//template<typename SampleType>
+class FBVCA_Trad final : public DECompressor//<SampleType>
+{
+public:
+    void process(float* buffer) noexcept
+    {
+        for (size_t i = 0; i < blockSize; ++i)
+        {
+            //rectifier
+            rect = fabsf(y);
+            //ballistics filter
+            float a = (rect < bf) ? a_r : a_a;
+            bf = a * bf + (1.f - a) * rect;
+            //compressor transfer function
+            buffer[i] = dryLin * buffer[i] + wetLin * buffer[i] * ctf(bf);
+            //store last output
+            y = buffer[i];
+        }
+    }
+private:
+    float y;
+};
+
+//template<typename SampleType>
+class FBVCA_TPTz final : public TPTCompressor//<SampleType>
+{
+public:
+    void process(float* buffer) noexcept
+    {
+        for (size_t i = 0; i < blockSize; ++i)
+        {
+            //rectifier
+            rect = fabsf(y);
+            //ballistics filter
+            float G = (s > rect) ? Gr : Ga;
+            float v = (rect - s) * G;
+            bf = v + s;
+            s = bf + v;
+            //compressor transfer function
+            buffer[i] = dryLin * buffer[i] + wetLin * buffer[i] * ctf(bf);
+            //store last output
+            y = buffer[i];
+        }
+    }
+private:
+    float y;
+};
+
+/*template<typename SampleType>
+class FBVCA_TPT final : public TPTCompressor<SampleType>
+{
+
+};*/
+
+#pragma endregion
+
+//TODO SIMD optimize branches, conditionals
+//TODO template classes

@@ -56,28 +56,55 @@ public:
 
     void setCompressor(int index)
     {
-        if (index < 1 || index > 3) return;
-        currentCompressor = (CurrentCompressor)index;
+        if (index < 1 || index > NUM_MODELS) return;
+        currentCompressor = (CompressorModel)index;
     }
 
     //Compressors
-    FFVCA_Trad ffvcaTrad;
-    FFVCA_TPTz ffvcaTPTz;
-    FFVCA_TPT ffvcaTPT;
+    FFVCA_Trad/*<float>*/ ffvcaTrad;
+    FFVCA_TPTz/*<float>*/ ffvcaTPTz;
+    FFVCA_TPT/*<float>*/ ffvcaTPT;
+    FBVCA_Trad fbvcaTrad;
+    FBVCA_TPTz fbvcaTPTz;
+
+    FFVCA_Trad/*<float>*/ ffvcaTradR;
+    FFVCA_TPTz/*<float>*/ ffvcaTPTzR;
+    FFVCA_TPT/*<float>*/ ffvcaTPTR;
+    FBVCA_Trad fbvcaTradR;
+    FBVCA_TPTz fbvcaTPTzR;
+    
 private:
+    //SIMD optimization
+    /*
+    float* inout[juce::dsp::SIMDRegister<float>::size()];
+    juce::AudioBuffer<juce::dsp::SIMDRegister<float>> interleaved;
+    juce::AudioBuffer<float> zeros;
+    */
+
     //parameters
-    enum CurrentCompressor
+    /*enum class compressorModel : size_t
     {
-        Trad = 1,
-        TPTz,
-        TPT
+        FF_Trad = 1,
+        FF_TPTz = 2,
+        FF_TPT = 3,
+        FB_Trad = 4,
+        FB_TPTz = 5,
+        FB_TPT = 6
+    };*/
+    enum CompressorModel
+    {
+        FF_TRAD = 1,
+        FF_TPTZ,
+        FF_TPT,
+        FB_TRAD,
+        FB_TPTZ,
+        NUM_MODELS
     };
-    CurrentCompressor currentCompressor = Trad;
+    CompressorModel currentCompressor = FF_TRAD;
     //==============================================================================
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(CompressorTestbenchAudioProcessor)
-    
-    
-
-
-       
 };
+//TODO double support
+//TODO enum classes
+//TODO SIMD
+//TODO makeupGain slider

@@ -9,46 +9,57 @@
 
 #include "Compressors.h"
 
-void Compressor::setThreshold(float thrdB) noexcept { thrlin = juce::Decibels::decibelsToGain(thrdB); }
+//template<typename SampleType>
+void Compressor/*<SampleType>*/::setThreshold(float thrdB) noexcept { thrlin = juce::Decibels::decibelsToGain(thrdB); }
 
-void Compressor::setRatio(float ratioR) noexcept { exponent = (1.f / ratioR) - 1.f; }
+//template<typename SampleType>
+void Compressor/*<SampleType>*/::setRatio(float ratioR) noexcept { exponent = (1.0 / ratioR) - 1.0; }
 
-void TPTCompressor::prepare(const double sampleRate, const int samplesPerBlock)
+void Compressor::setWet(float wetdB) noexcept { wetLin = juce::Decibels::decibelsToGain(wetdB); }
+
+void Compressor::setDry(float drydB) noexcept { dryLin = juce::Decibels::decibelsToGain(drydB); }
+
+//template<typename SampleType>
+void TPTCompressor/*<SampleType>*/::prepare(const double sampleRate, const int samplesPerBlock)
 {
     blockSize = samplesPerBlock;
-    Tdiv2 = 1.f / sampleRate;
+    Tdiv2 = 1.0 / sampleRate;
 }
 
-void TPTCompressor::setAttack(float attackMs) noexcept 
+//template<typename SampleType>
+void TPTCompressor/*<SampleType>*/::setAttack(float attackMs) noexcept
 { 
-    float w = 1000.f / attackMs;
+    float w = 1000.0 / attackMs;
     float g = tan(Tdiv2*w);
-    Ga = g / (1.f + g);
+    Ga = g / (1.0 + g);
 }
 
-void TPTCompressor::setRelease(float releaseMs) noexcept 
+//template<typename SampleType>
+void TPTCompressor/*<SampleType>*/::setRelease(float releaseMs) noexcept
 {
-    float w = 1000.f / releaseMs;
+    float w = 1000.0 / releaseMs;
     float g = tan(Tdiv2 * w);
-    Gr = g / (1.f + g);
+    Gr = g / (1.0 + g);
 }
 
 
-
-void DECompressor::prepare(const double sampleRate, const int samplesPerBlock)
+//template<typename SampleType>
+void DECompressor/*<SampleType>*/::prepare(const double sampleRate, const int samplesPerBlock)
 {
     blockSize = samplesPerBlock;
-    T = 1.f / sampleRate;
+    T = 1.0 / sampleRate;
 }
 
-void DECompressor::setAttack(float attackMs) noexcept
+//template<typename SampleType>
+void DECompressor/*<SampleType>*/::setAttack(float attackMs) noexcept
 {
-    float w = 1000.f / attackMs;
+    float w = 1000.0 / attackMs;
     a_a = exp(-w * T);
 }
 
-void DECompressor::setRelease(float releaseMs) noexcept
+//template<typename SampleType>
+void DECompressor/*<SampleType>*/::setRelease(float releaseMs) noexcept
 {
-    float w = 1000.f / releaseMs;
+    float w = 1000.0 / releaseMs;
     a_r = exp(-w * T);
 }
