@@ -63,13 +63,3 @@ s = y+v;
 ## 4. Feedback VCA
 
 ## 4. Traditional Digital Compressor
-
-## SOUL Prototypes
-
-[FFVCA traditional](https://soul.dev/lab/?id=eb8374b6895f0a245cae518d49ad82a5)
-
-[FFVCA TPT](https://soul.dev/lab/?id=e0728f3e5ca6979ef1b22ce17f7af129)
-
-Feedback VCA
-
-[FFVCA](https://soul.dev/lab/?id=6595080f06b19b8141a752e23204ae50)

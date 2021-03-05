@@ -35,7 +35,6 @@ CompressorTestbenchAudioProcessorEditor::CompressorTestbenchAudioProcessorEditor
     attackLabel.setText("Attack", juce::dontSendNotification);
     attackLabel.attachToComponent(&attackSlider, true);
    
-
     //Release
     addAndMakeVisible(releaseSlider);
     releaseSlider.setRange(0.1, 500);
