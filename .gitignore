@@ -1,5 +1,13 @@
-##README
+##Project Specific
 *.tex
+Builds/
+JuceLibraryCode/
+*.def
+*.wav
+lib/
+include/
+test/
+samples/
 
 ##https://github.com/github/gitignore/blob/master/Global/VisualStudioCode.gitignore
 .vscode/*
@@ -13,13 +21,7 @@
 .history/
 
 
-##VirtualAnalogCompressors project files
-*.def
-*.wav
-lib/
-include/
-test/
-samples/
+
 
 
 ##https://github.com/github/gitignore/blob/master/C.gitignore
