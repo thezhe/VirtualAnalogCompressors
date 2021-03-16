@@ -2,9 +2,15 @@
 
 <JUCERPROJECT id="kLFAAs" name="CompressorTestbench" projectType="audioplug"
               useAppConfig="0" addUsingNamespaceToJuceHeader="0" displaySplashScreen="1"
-              jucerFormatVersion="1" pluginFormats="buildAU,buildVST3">
+              jucerFormatVersion="1" pluginFormats="buildAU,buildVST3" headerPath="C:\Users\tigr2\Documents\Libraries">
   <MAINGROUP id="ZzvBcj" name="CompressorTestbench">
     <GROUP id="{02A2FA68-6A95-ED69-DBA0-A9567568F2A5}" name="Source">
+      <FILE id="U8fsTA" name="NonlinearFilters.cpp" compile="1" resource="0"
+            file="Source/NonlinearFilters.cpp"/>
+      <FILE id="YRGfK9" name="NonlinearFilters.h" compile="0" resource="0"
+            file="Source/NonlinearFilters.h"/>
+      <FILE id="pvCCV3" name="Filters.cpp" compile="1" resource="0" file="Source/Filters.cpp"/>
+      <FILE id="Ca7SyM" name="Filters.h" compile="0" resource="0" file="Source/Filters.h"/>
       <FILE id="PfnVOM" name="Compressors.h" compile="0" resource="0" file="Source/Compressors.h"/>
       <FILE id="ibIGOs" name="Compressors.cpp" compile="1" resource="0" file="Source/Compressors.cpp"/>
       <FILE id="z6Qg7D" name="PluginProcessor.cpp" compile="1" resource="0"
@@ -16,7 +22,8 @@
       <FILE id="QmofjR" name="PluginEditor.h" compile="0" resource="0" file="Source/PluginEditor.h"/>
     </GROUP>
   </MAINGROUP>
-  <JUCEOPTIONS JUCE_STRICT_REFCOUNTEDPOINTER="1" JUCE_VST3_CAN_REPLACE_VST2="0"/>
+  <JUCEOPTIONS JUCE_STRICT_REFCOUNTEDPOINTER="1" JUCE_VST3_CAN_REPLACE_VST2="0"
+               JUCE_DSP_ENABLE_SNAP_TO_ZERO="0"/>
   <EXPORTFORMATS>
     <VS2019 targetFolder="Builds/VisualStudio2019">
       <CONFIGURATIONS>

@@ -1,8 +1,10 @@
 /*
   ==============================================================================
+    Zhe Deng 2021
+    thezhefromcenterville@gmail.com
 
-    This file contains the basic framework code for a JUCE plugin processor.
-
+    This file is part of CompressorTestBench which is released under the MIT license.
+    See file LICENSE or go to https://github.com/thezhe/VirtualAnalogCompressors for full license details.
   ==============================================================================
 */
 
@@ -93,23 +95,22 @@ void CompressorTestbenchAudioProcessor::changeProgramName (int index, const juce
 //==============================================================================
 void CompressorTestbenchAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
-    /*zeros.setSize(juce::dsp::SIMDRegister<float>::size(), samplesPerBlock);
-    zeros.clear();
-    interleaved.setSize(1, samplesPerBlock);*/
-    ffvcaTrad.prepare(sampleRate, samplesPerBlock);
+    //prepare SIMD
+    interleaved = juce::dsp::AudioBlock<float>(interleavedBlockData, 1, samplesPerBlock*SIMD::size);
+    zero = juce::dsp::AudioBlock<float>(zeroData, SIMD::size, samplesPerBlock);
+    zero.clear();
+    //TEST
+    mm1_TPT.prepare(sampleRate, samplesPerBlock);
+    mm1_TPT.setCutoff(80);
+
+
+    //prepare compressors
+    ffvcaIIR.prepare(sampleRate, samplesPerBlock);
     ffvcaTPTz.prepare(sampleRate, samplesPerBlock);
     ffvcaTPT.prepare(sampleRate, samplesPerBlock);
-    
-    ffvcaTradR.prepare(sampleRate, samplesPerBlock);
-    ffvcaTPTzR.prepare(sampleRate, samplesPerBlock);
-    ffvcaTPTR.prepare(sampleRate, samplesPerBlock);
 
-    fbvcaTrad.prepare(sampleRate, samplesPerBlock);
+    fbvcaIIR.prepare(sampleRate, samplesPerBlock);
     fbvcaTPTz.prepare(sampleRate, samplesPerBlock);
-
-    fbvcaTradR.prepare(sampleRate, samplesPerBlock);
-    fbvcaTPTzR.prepare(sampleRate, samplesPerBlock);
-
 }
 
 void CompressorTestbenchAudioProcessor::releaseResources()
@@ -150,50 +151,51 @@ void CompressorTestbenchAudioProcessor::processBlock (juce::AudioBuffer<float>& 
     auto totalNumInputChannels  = getTotalNumInputChannels();
     auto totalNumOutputChannels = getTotalNumOutputChannels();
     //clear extra buffer channels
-    /*
+   
    //get channel pointers
+    auto* inout = channelPointers.getData();
     for (size_t ch = 0; ch < juce::dsp::SIMDRegister<float>::size(); ++ch)
-        inout[ch] = ch < totalNumInputChannels ? buffer.getWritePointer(ch) :
-        zeros.getWritePointer(ch);
+        inout[ch] = ch < totalNumInputChannels ? 
+        buffer.getReadPointer(ch) :
+        zero.getChannelPointer(ch);
+
     //interleave channel data
-    juce::AudioDataConverters::interleaveSamples(const_cast<float**> (inout),
-        reinterpret_cast<float*> (interleaved.getWritePointer(0)),
+    juce::AudioDataConverters::interleaveSamples(
+        inout,
+        interleaved.getChannelPointer(0),
         buffer.getNumSamples(),
-        static_cast<int> (juce::dsp::SIMDRegister<float>::size()));
+        SIMD::size
+    );
+    
+    mm1_TPT.process(interleaved.getChannelPointer(0));
     //process
-    */
-    switch (currentCompressor)
+   /* switch (currentCompressor)
     {
-        case FF_TRAD:
-            ffvcaTrad.process(buffer.getWritePointer(0));
-            ffvcaTradR.process(buffer.getWritePointer(1));
+        case FF_IIR:
+            ffvcaIIR.process(interleaved.getChannelPointer(0));
             break;
         case FF_TPTZ:
-            ffvcaTPTz.process(buffer.getWritePointer(0));
-            ffvcaTPTzR.process(buffer.getWritePointer(1));
+            ffvcaTPTz.process(interleaved.getChannelPointer(0));
             break;
         case FF_TPT:
-            ffvcaTPT.process(buffer.getWritePointer(0));
-            ffvcaTPTR.process(buffer.getWritePointer(1));
+            ffvcaTPT.process(interleaved.getChannelPointer(0));
             break;
-        case FB_TRAD:
-            fbvcaTrad.process(buffer.getWritePointer(0));
-            fbvcaTradR.process(buffer.getWritePointer(1));
+        case FB_IIR:
+            fbvcaIIR.process(interleaved.getChannelPointer(0));
             break;
         default:
-            fbvcaTPTz.process(buffer.getWritePointer(0));
-            fbvcaTPTzR.process(buffer.getWritePointer(1));
+            fbvcaTPTz.process(interleaved.getChannelPointer(0));
             break;
-    }
-    /*
+    }*/
+    
     //deinterleave
     juce::AudioDataConverters::deinterleaveSamples(
-        reinterpret_cast<float*>(interleaved.getWritePointer(0)),
-        inout,
+        interleaved.getChannelPointer(0),
+        const_cast<float**>(inout),
         buffer.getNumSamples(),
-        static_cast<int>(juce::dsp::SIMDRegister<float>::size())
+        SIMD::size
         );
-        */
+        
 }
 
 //==============================================================================

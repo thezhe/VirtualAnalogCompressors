@@ -1,8 +1,10 @@
 /*
   ==============================================================================
+    Zhe Deng 2021
+    thezhefromcenterville@gmail.com
 
-    This file contains the basic framework code for a JUCE plugin processor.
-
+    This file is part of CompressorTestBench which is released under the MIT license.
+    See file LICENSE or go to https://github.com/thezhe/VirtualAnalogCompressors for full license details.
   ==============================================================================
 */
 
@@ -10,6 +12,7 @@
 
 #include <JuceHeader.h>
 #include "Compressors.h"
+#include "Filters.h"
 
 //==============================================================================
 /**
@@ -60,26 +63,24 @@ public:
         currentCompressor = (CompressorModel)index;
     }
 
-    //Compressors
-    FFVCA_Trad/*<float>*/ ffvcaTrad;
-    FFVCA_TPTz/*<float>*/ ffvcaTPTz;
-    FFVCA_TPT/*<float>*/ ffvcaTPT;
-    FBVCA_Trad fbvcaTrad;
-    FBVCA_TPTz fbvcaTPTz;
+    //TEST
+    Multimode1_TPT<float> mm1_TPT;
 
-    FFVCA_Trad/*<float>*/ ffvcaTradR;
-    FFVCA_TPTz/*<float>*/ ffvcaTPTzR;
-    FFVCA_TPT/*<float>*/ ffvcaTPTR;
-    FBVCA_Trad fbvcaTradR;
-    FBVCA_TPTz fbvcaTPTzR;
+    //compressor models
+    FFVCA_IIR<float> ffvcaIIR;
+    FFVCA_TPTz<float> ffvcaTPTz;
+    FFVCA_TPT<float> ffvcaTPT;
     
+    FBVCA_IIR<float> fbvcaIIR;
+    FBVCA_TPTz<float> fbvcaTPTz;
+
+    using SIMD = xsimd::simd_type<float>;
 private:
-    //SIMD optimization
-    /*
-    float* inout[juce::dsp::SIMDRegister<float>::size()];
-    juce::AudioBuffer<juce::dsp::SIMDRegister<float>> interleaved;
-    juce::AudioBuffer<float> zeros;
-    */
+
+    //SIMD optimization          
+    juce::dsp::AudioBlock<float> interleaved, zero;
+    juce::HeapBlock<char> interleavedBlockData, zeroData;              
+    juce::HeapBlock<const float*> channelPointers{ SIMD::size };
 
     //parameters
     /*enum class compressorModel : size_t
@@ -93,18 +94,17 @@ private:
     };*/
     enum CompressorModel
     {
-        FF_TRAD = 1,
+        FF_IIR = 1,
         FF_TPTZ,
         FF_TPT,
-        FB_TRAD,
+        FB_IIR,
         FB_TPTZ,
         NUM_MODELS
     };
-    CompressorModel currentCompressor = FF_TRAD;
+    CompressorModel currentCompressor = FF_IIR;
     //==============================================================================
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(CompressorTestbenchAudioProcessor)
 };
 //TODO double support
 //TODO enum classes
 //TODO SIMD
-//TODO makeupGain slider

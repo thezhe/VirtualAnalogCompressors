@@ -454,6 +454,12 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="..\..\Source\NonlinearFilters.cpp">
+      <Filter>CompressorTestbench\Source</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\Filters.cpp">
+      <Filter>CompressorTestbench\Source</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\Source\Compressors.cpp">
       <Filter>CompressorTestbench\Source</Filter>
     </ClCompile>
@@ -2625,6 +2631,12 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\..\Source\NonlinearFilters.h">
+      <Filter>CompressorTestbench\Source</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Source\Filters.h">
+      <Filter>CompressorTestbench\Source</Filter>
+    </ClInclude>
     <ClInclude Include="..\..\Source\Compressors.h">
       <Filter>CompressorTestbench\Source</Filter>
     </ClInclude>

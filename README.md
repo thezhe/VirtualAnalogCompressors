@@ -1,5 +1,11 @@
 # VirtualAnalogCompressors
 
+## Project Dependencies
+
+[JUCE](https://github.com/juce-framework/JUCE)
+
+[xsimd](https://github.com/xtensor-stack/xsimd)
+
 ## 1. Introduction
 
 ## 2. Compressor Review
