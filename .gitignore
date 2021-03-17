@@ -2,6 +2,7 @@
 *.tex
 Builds/
 JuceLibraryCode/
+**/Deprecated/
 *.def
 *.wav
 lib/
