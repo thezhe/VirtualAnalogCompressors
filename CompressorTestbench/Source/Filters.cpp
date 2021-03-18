@@ -16,7 +16,8 @@ template<typename SampleType>
 void Multimode1_TPT<SampleType>::prepare(const double sampleRate, const int samplesPerBlock)
 {
     T500 = 500.0 / sampleRate;
-    T_PI = juce::MathConstants<SampleType>::pi / sampleRate;
+    Tpi = juce::MathConstants<SampleType>::pi / sampleRate;
+    T_2 = SIMD(0.5 / sampleRate);
     interleavedSize = samplesPerBlock*SIMD::size;
 }
 
@@ -24,14 +25,13 @@ template<typename SampleType>
 void Multimode1_TPT<SampleType>::setAttack(SampleType attackMs) noexcept
 {
     SampleType g = tan(T500 / attackMs); //tan((T/2) * w) = tan((T/2) * (1000/attackMs))
-    
     G = SIMD(g / (1.0 + g));
 }
 
 template<typename SampleType>
 void Multimode1_TPT<SampleType>::setCutoff(SampleType cutoffHz) noexcept
 {
-    SampleType g = tan(T_PI * cutoffHz); //tan((T/2) * w) = tan((T/2) * 2 * PI * cutoffHz)
+    SampleType g = tan(Tpi * cutoffHz); //tan((T/2) * w) = tan((T/2) * 2 * PI * cutoffHz)
     G = SIMD(g / (1.0 + g));
 }
 
@@ -72,8 +72,8 @@ void BallisticsFilter_TPTtype<SampleType>::setAttack(SampleType attackMs) noexce
 template<typename SampleType>
 void BallisticsFilter_TPTtype<SampleType>::setRelease(SampleType releaseMs) noexcept
 {
-    SampleType g = tan(T500 / releaseMs); //tan((T/2) * w) = tan((T/2) * (1000/attackMs))
-    Gr = (g / (1.0 + g));
+    SampleType g = tan(T500 / releaseMs);
+    Gr = SIMD(g / (1.0 + g));
 }
 
 template class BallisticsFilter_TPTtype<float>;

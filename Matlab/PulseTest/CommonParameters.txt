@@ -1,0 +1,11 @@
+Common Parameters:
+Attack 20
+Release 40
+Threshold -6
+Ratio 100
+Wet 0
+Dry -90
+
+Common FF_RL Parameters:
+LinearCutoff 10
+Intensity 24

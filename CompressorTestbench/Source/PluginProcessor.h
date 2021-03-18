@@ -59,22 +59,22 @@ public:
 
     void setCompressor(int index)
     {
-        if (index < 1 || index > NUM_MODELS) return;
+        if (index < 1 || index >= NUM_MODELS) return;
         currentCompressor = (CompressorModel)index;
     }
-
-    //TEST
-    Multimode1_TPT<float> mm1_TPT;
 
     //compressor models
     FFVCA_IIR<float> ffvcaIIR;
     FFVCA_TPTz<float> ffvcaTPTz;
     FFVCA_TPT<float> ffvcaTPT;
-    
+
     FBVCA_IIR<float> fbvcaIIR;
     FBVCA_TPTz<float> fbvcaTPTz;
 
+    FFVCA_RL_Modulating_TPTz<float> ffvca_RL_Modulating_TPTz;
+
     using SIMD = xsimd::simd_type<float>;
+
 private:
 
     //SIMD optimization          
@@ -99,6 +99,7 @@ private:
         FF_TPT,
         FB_IIR,
         FB_TPTZ,
+        FF_RL_MOD_TPTZ,
         NUM_MODELS
     };
     CompressorModel currentCompressor = FF_IIR;
@@ -108,3 +109,4 @@ private:
 //TODO double support
 //TODO enum classes
 //TODO SIMD
+//TODO parameters

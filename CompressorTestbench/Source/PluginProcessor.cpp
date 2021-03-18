@@ -99,10 +99,6 @@ void CompressorTestbenchAudioProcessor::prepareToPlay (double sampleRate, int sa
     interleaved = juce::dsp::AudioBlock<float>(interleavedBlockData, 1, samplesPerBlock*SIMD::size);
     zero = juce::dsp::AudioBlock<float>(zeroData, SIMD::size, samplesPerBlock);
     zero.clear();
-    //TEST
-    mm1_TPT.prepare(sampleRate, samplesPerBlock);
-    mm1_TPT.setCutoff(80);
-
 
     //prepare compressors
     ffvcaIIR.prepare(sampleRate, samplesPerBlock);
@@ -111,6 +107,9 @@ void CompressorTestbenchAudioProcessor::prepareToPlay (double sampleRate, int sa
 
     fbvcaIIR.prepare(sampleRate, samplesPerBlock);
     fbvcaTPTz.prepare(sampleRate, samplesPerBlock);
+
+    ffvca_RL_Modulating_TPTz.prepare(sampleRate, samplesPerBlock);
+    
 }
 
 void CompressorTestbenchAudioProcessor::releaseResources()
@@ -150,15 +149,18 @@ void CompressorTestbenchAudioProcessor::processBlock (juce::AudioBuffer<float>& 
     juce::ScopedNoDenormals noDenormals;
     auto totalNumInputChannels  = getTotalNumInputChannels();
     auto totalNumOutputChannels = getTotalNumOutputChannels();
+    
     //clear extra buffer channels
+    for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
+        buffer.clear(i, 0, buffer.getNumSamples());
    
-   //get channel pointers
+    //get channel pointers
     auto* inout = channelPointers.getData();
     for (size_t ch = 0; ch < juce::dsp::SIMDRegister<float>::size(); ++ch)
         inout[ch] = ch < totalNumInputChannels ? 
         buffer.getReadPointer(ch) :
         zero.getChannelPointer(ch);
-
+    
     //interleave channel data
     juce::AudioDataConverters::interleaveSamples(
         inout,
@@ -166,10 +168,9 @@ void CompressorTestbenchAudioProcessor::processBlock (juce::AudioBuffer<float>& 
         buffer.getNumSamples(),
         SIMD::size
     );
-    
-    mm1_TPT.process(interleaved.getChannelPointer(0));
+
     //process
-   /* switch (currentCompressor)
+    switch (currentCompressor)
     {
         case FF_IIR:
             ffvcaIIR.process(interleaved.getChannelPointer(0));
@@ -183,10 +184,13 @@ void CompressorTestbenchAudioProcessor::processBlock (juce::AudioBuffer<float>& 
         case FB_IIR:
             fbvcaIIR.process(interleaved.getChannelPointer(0));
             break;
-        default:
+        case FB_TPTZ:
             fbvcaTPTz.process(interleaved.getChannelPointer(0));
             break;
-    }*/
+        default:
+            ffvca_RL_Modulating_TPTz.process(interleaved.getChannelPointer(0));
+            break;
+    }
     
     //deinterleave
     juce::AudioDataConverters::deinterleaveSamples(

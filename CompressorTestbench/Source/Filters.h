@@ -34,8 +34,27 @@ public:
     /** Set the time for the step response to reach 1-1/e in miliseconds */
     void setAttack(SampleType attackMs) noexcept;
 
-    /** Set the filter cutoff in hertz */
+    /** Set the filter cutoff in hertz 
+    *
+    *   NOTE: Do not set cutoff higher than or near Nyquist
+    */
     void setCutoff(SampleType cutoffHz) noexcept;
+
+    /** Set the filter cutoff in radians
+    *   
+    *   Note 1: This is an inline method for programmatically
+    *   modulating filter cutoff at audio rates.
+    * 
+    *   Note 2: Do not set omega higher than or near twopi*Nyquist
+    */
+    void setOmega(SIMD omega) noexcept
+    {
+        SIMD g = xsimd::tan(T_2 * omega);
+        G = g / (SIMD(1.0) + g);
+    }
+
+    /** Set lowpass or highpass mode */
+    void setMode(Multimode1TPTFilterType mode) { filterType = mode; }
 
     /** Process a SIMD register */
     SIMD processSample(SIMD x) noexcept
@@ -60,7 +79,8 @@ public:
 
 private:
     //spec
-    SampleType T500, T_PI;
+    SampleType T500, Tpi;
+    SIMD T_2;
     size_t interleavedSize;
 
     //parameters
@@ -73,6 +93,9 @@ private:
     //state
     SIMD s;
 };
+
+
+#pragma region Ballistics Filters
 
 /** Peak Ballistics Filter using a first order IIR */
 template <typename SampleType>
@@ -94,7 +117,7 @@ public:
         //rectifier
         rect = xsimd::abs(x);
         //branching cutoff
-        SIMD a = xsimd::select(y > rect, a_r, a_a); //y > rect ? a_r : a_a 
+        SIMD a = xsimd::select(rect < y, a_r, a_a); // rect < y ? a_r : a_a 
         //filter
         y = (SIMD(1.0) - a) * rect + a * y;
         return y;
@@ -105,13 +128,10 @@ private:
     SampleType T_m1k;
 
     //parameters
-    SIMD a_r, a_a;
+    SIMD a_r = SIMD(0.5), a_a = SIMD(0.5);
 
     //outputs
     SIMD rect, y;
-
-    //state
-    SIMD s;
 };
 
 /** Abstract Class */
@@ -186,6 +206,8 @@ public:
         return y;
     }
 };
+
+#pragma endregion
 
 //TODO SIMD mask MM1 branch
 

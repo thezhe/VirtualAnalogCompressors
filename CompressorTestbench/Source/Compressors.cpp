@@ -74,8 +74,8 @@ template class Compressor_TPTz<double>;
 template<typename SampleType>
 void Compressor_TPT<SampleType>::prepare(const double sampleRate, const int samplesPerBlock) 
 { 
-    blockSize = samplesPerBlock*SIMD::size; 
     ballisticsFilter_TPT.prepare(sampleRate, samplesPerBlock);
+    blockSize = samplesPerBlock * SIMD::size;
 }
 
 template<typename SampleType>
@@ -122,4 +122,48 @@ template class FBVCA_IIR<double>;
 template class FBVCA_TPTz<float>;
 template class FBVCA_TPTz<double>;
 
+#pragma endregion
+
+#pragma region FFVCA_RL_Modulating_TPTz
+
+template<typename SampleType>
+void FFVCA_RL_Modulating_TPTz<SampleType>::prepare(const double sampleRate, const int samplesPerBlock)
+{
+    blockSize = samplesPerBlock * SIMD::size;
+    ballisticsFilter.prepare(sampleRate, samplesPerBlock);
+    rl.prepare(sampleRate, samplesPerBlock);
+}
+
+template<typename SampleType>
+void FFVCA_RL_Modulating_TPTz<SampleType>::setAttack(SampleType attackMs) noexcept
+{
+    ballisticsFilter.setAttack(attackMs);
+}
+
+template<typename SampleType>
+void FFVCA_RL_Modulating_TPTz<SampleType>::setRelease(SampleType releaseMs) noexcept
+{
+    ballisticsFilter.setRelease(releaseMs);
+}
+
+template<typename SampleType>
+void FFVCA_RL_Modulating_TPTz<SampleType>::setLinearCutoffRL(SampleType cutoffHz) noexcept
+{
+    rl.setLinearCutoff(cutoffHz);
+}
+
+template<typename SampleType>
+void FFVCA_RL_Modulating_TPTz<SampleType>::setSaturationRL(SampleType saturationConstant) noexcept
+{
+    rl.setSaturation(saturationConstant);
+}
+
+template<typename SampleType>
+void FFVCA_RL_Modulating_TPTz<SampleType>::setIntensityRL(SampleType intensitydB) noexcept
+{
+    rl.setIntensity(intensitydB);
+}
+
+template class FFVCA_RL_Modulating_TPTz<float>;
+template class FFVCA_RL_Modulating_TPTz<double>;
 #pragma endregion

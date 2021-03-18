@@ -13,6 +13,10 @@
 CompressorTestbenchAudioProcessorEditor::CompressorTestbenchAudioProcessorEditor (CompressorTestbenchAudioProcessor& p)
     : AudioProcessorEditor (&p), audioProcessor (p)
 {
+    //Compressor label
+    addAndMakeVisible(compressorLabel);
+    compressorLabel.setText("General Compressor Parameters", juce::dontSendNotification);
+
     //Attack
     addAndMakeVisible(attackSlider);
     attackSlider.setRange(0.1, 250);
@@ -24,6 +28,8 @@ CompressorTestbenchAudioProcessorEditor::CompressorTestbenchAudioProcessorEditor
         audioProcessor.ffvcaTPT.setAttack(attackSlider.getValue());
         audioProcessor.fbvcaIIR.setAttack(attackSlider.getValue());
         audioProcessor.fbvcaTPTz.setAttack(attackSlider.getValue());
+
+        audioProcessor.ffvca_RL_Modulating_TPTz.setAttack(attackSlider.getValue());
     };
     addAndMakeVisible(attackLabel);
     attackLabel.setText("Attack", juce::dontSendNotification);
@@ -40,6 +46,9 @@ CompressorTestbenchAudioProcessorEditor::CompressorTestbenchAudioProcessorEditor
         audioProcessor.ffvcaTPT.setRelease(releaseSlider.getValue());
         audioProcessor.fbvcaIIR.setRelease(releaseSlider.getValue());
         audioProcessor.fbvcaTPTz.setRelease(releaseSlider.getValue());
+
+
+        audioProcessor.ffvca_RL_Modulating_TPTz.setRelease(releaseSlider.getValue());
     };
     addAndMakeVisible(releaseLabel);
     releaseLabel.setText("Release", juce::dontSendNotification);
@@ -55,6 +64,8 @@ CompressorTestbenchAudioProcessorEditor::CompressorTestbenchAudioProcessorEditor
         audioProcessor.ffvcaTPT.setThreshold(thresholdSlider.getValue());
         audioProcessor.fbvcaIIR.setThreshold(thresholdSlider.getValue());
         audioProcessor.fbvcaTPTz.setThreshold(thresholdSlider.getValue());
+
+        audioProcessor.ffvca_RL_Modulating_TPTz.setThreshold(thresholdSlider.getValue());
     };
     addAndMakeVisible(thresholdLabel);
     thresholdLabel.setText("Threshold", juce::dontSendNotification);
@@ -69,6 +80,8 @@ CompressorTestbenchAudioProcessorEditor::CompressorTestbenchAudioProcessorEditor
         audioProcessor.ffvcaTPT.setRatio(ratioSlider.getValue());
         audioProcessor.fbvcaIIR.setRatio(ratioSlider.getValue());
         audioProcessor.fbvcaTPTz.setRatio(ratioSlider.getValue());
+
+        audioProcessor.ffvca_RL_Modulating_TPTz.setRatio(ratioSlider.getValue());
     };
     addAndMakeVisible(ratioLabel);
     ratioLabel.setText("Ratio", juce::dontSendNotification);
@@ -84,6 +97,8 @@ CompressorTestbenchAudioProcessorEditor::CompressorTestbenchAudioProcessorEditor
         audioProcessor.ffvcaTPT.setWet(wetSlider.getValue());
         audioProcessor.fbvcaIIR.setWet(wetSlider.getValue());
         audioProcessor.fbvcaTPTz.setWet(wetSlider.getValue());
+
+        audioProcessor.ffvca_RL_Modulating_TPTz.setWet(wetSlider.getValue());
     };
     addAndMakeVisible(wetLabel);
     wetLabel.setText("Wet", juce::dontSendNotification);
@@ -99,6 +114,8 @@ CompressorTestbenchAudioProcessorEditor::CompressorTestbenchAudioProcessorEditor
         audioProcessor.ffvcaTPT.setDry(drySlider.getValue());
         audioProcessor.fbvcaIIR.setDry(drySlider.getValue());
         audioProcessor.fbvcaTPTz.setDry(drySlider.getValue());
+
+        audioProcessor.ffvca_RL_Modulating_TPTz.setDry(drySlider.getValue());
     };
     addAndMakeVisible(dryLabel);
     dryLabel.setText("Dry", juce::dontSendNotification);
@@ -111,10 +128,48 @@ CompressorTestbenchAudioProcessorEditor::CompressorTestbenchAudioProcessorEditor
     topologyComboBox.addItem("FF (TPT)", 3);
     topologyComboBox.addItem("FB (IIR)", 4);
     topologyComboBox.addItem("FB (TPTz)", 5);
+    topologyComboBox.addItem("FF_RL (Modulating, TPTz)", 6);
     topologyComboBox.onChange = [this] { audioProcessor.setCompressor(topologyComboBox.getSelectedId()); };
     addAndMakeVisible(topologyLabel);
     topologyLabel.setText("Topology", juce::dontSendNotification);
     topologyLabel.attachToComponent(&topologyComboBox, true);
+
+    //RL label
+    addAndMakeVisible(rlLabel);
+    rlLabel.setText("RL Parameters (Cutoff Moduation)", juce::dontSendNotification);
+
+    //Linear Cutoff
+    addAndMakeVisible(linearCutoffSlider);
+    linearCutoffSlider.setRange(0, 1000);
+    linearCutoffSlider.setTextValueSuffix(" Hz");
+    linearCutoffSlider.onValueChange = [this] {
+        audioProcessor.ffvca_RL_Modulating_TPTz.setLinearCutoffRL(linearCutoffSlider.getValue());
+    };
+    addAndMakeVisible(linearCutoffLabel);
+    linearCutoffLabel.setText("Linear Cutoff", juce::dontSendNotification);
+    linearCutoffLabel.attachToComponent(&linearCutoffSlider, true);
+
+    //Saturation
+    addAndMakeVisible(saturationSlider);
+    saturationSlider.setRange(0, 1000);
+    saturationSlider.setSkewFactorFromMidPoint(250);
+    saturationSlider.onValueChange = [this] {
+        audioProcessor.ffvca_RL_Modulating_TPTz.setSaturationRL(saturationSlider.getValue());
+    };
+    addAndMakeVisible(saturationLabel);
+    saturationLabel.setText("Saturation", juce::dontSendNotification);
+    saturationLabel.attachToComponent(&saturationSlider, true);
+
+    //Intensity
+    addAndMakeVisible(intensitySlider);
+    intensitySlider.setRange(0, 24);
+    intensitySlider.setTextValueSuffix(" dB");
+    intensitySlider.onValueChange = [this] {
+        audioProcessor.ffvca_RL_Modulating_TPTz.setIntensityRL(saturationSlider.getValue());
+    };
+    addAndMakeVisible(intensityLabel);
+    intensityLabel.setText("Intensity", juce::dontSendNotification);
+    intensityLabel.attachToComponent(&intensitySlider, true);
 
     //Use sendNotificationSync or else initial values do not trigger onValueChanged Lambdas properly
     //https://forum.juce.com/t/slider-onvaluechange-callback-behaves-unexpectedly/32677/4
@@ -127,7 +182,11 @@ CompressorTestbenchAudioProcessorEditor::CompressorTestbenchAudioProcessorEditor
     drySlider.setValue(-90, juce::sendNotificationSync);
     topologyComboBox.setSelectedId(3, juce::sendNotificationSync);
 
-    setSize (400, 2 * marginT + 7 * sliderDY);
+    linearCutoffSlider.setValue(15, juce::sendNotificationSync);
+    saturationSlider.setValue(0, juce::sendNotificationSync);
+    intensitySlider.setValue(24, juce::sendNotificationSync);
+
+    setSize (400, 2 * marginT + 12 * sliderDY);
 }
 
 CompressorTestbenchAudioProcessorEditor::~CompressorTestbenchAudioProcessorEditor()
@@ -148,12 +207,20 @@ void CompressorTestbenchAudioProcessorEditor::resized()
 {
 
     auto sliderWidth = getWidth() - marginL - 10;
+    auto labelWidth = getWidth() / 2;
+    auto labelL = (getWidth() / 2) - (labelWidth / 2);
 
-    attackSlider.setBounds(marginL, marginT, sliderWidth, sliderHeight);
-    releaseSlider.setBounds(marginL, marginT + sliderDY, sliderWidth, sliderHeight);
-    thresholdSlider.setBounds(marginL, marginT + 2 * sliderDY, sliderWidth, sliderHeight);
-    ratioSlider.setBounds(marginL, marginT + 3 * sliderDY, sliderWidth, sliderHeight);
-    wetSlider.setBounds(marginL, marginT + 4 * sliderDY, sliderWidth, sliderHeight);
-    drySlider.setBounds(marginL, marginT + 5 * sliderDY, sliderWidth, sliderHeight);
-    topologyComboBox.setBounds(marginL, marginT + 6 * sliderDY, sliderWidth, sliderHeight);
+    compressorLabel.setBounds(labelL, marginT, labelWidth, sliderHeight);
+    attackSlider.setBounds(marginL, marginT + sliderDY, sliderWidth, sliderHeight);
+    releaseSlider.setBounds(marginL, marginT + 2 * sliderDY, sliderWidth, sliderHeight);
+    thresholdSlider.setBounds(marginL, marginT + 3 * sliderDY, sliderWidth, sliderHeight);
+    ratioSlider.setBounds(marginL, marginT + 4 * sliderDY, sliderWidth, sliderHeight);
+    wetSlider.setBounds(marginL, marginT + 5 * sliderDY, sliderWidth, sliderHeight);
+    drySlider.setBounds(marginL, marginT + 6 * sliderDY, sliderWidth, sliderHeight);
+    topologyComboBox.setBounds(marginL, marginT + 7 * sliderDY, sliderWidth, sliderHeight);
+
+    rlLabel.setBounds(labelL, marginT + 8 * sliderDY, labelWidth, sliderHeight);
+    linearCutoffSlider.setBounds(marginL, marginT + 9 * sliderDY, sliderWidth, sliderHeight);
+    saturationSlider.setBounds(marginL, marginT + 10 * sliderDY, sliderWidth, sliderHeight);
+    intensitySlider.setBounds(marginL, marginT + 11 * sliderDY, sliderWidth, sliderHeight);
 }

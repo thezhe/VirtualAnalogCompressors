@@ -33,9 +33,14 @@ private:
     // access the processor object that created it.
     CompressorTestbenchAudioProcessor& audioProcessor;
 
+    juce::Label compressorLabel;
     juce::Label attackLabel, releaseLabel, thresholdLabel, ratioLabel, wetLabel, dryLabel, topologyLabel;
     juce::Slider attackSlider, releaseSlider, thresholdSlider, ratioSlider, wetSlider, drySlider;
     juce::ComboBox topologyComboBox;
+
+    //RL only
+    juce::Label rlLabel, saturationLabel, intensityLabel, linearCutoffLabel;
+    juce::Slider saturationSlider, intensitySlider, linearCutoffSlider;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(CompressorTestbenchAudioProcessorEditor)
 };

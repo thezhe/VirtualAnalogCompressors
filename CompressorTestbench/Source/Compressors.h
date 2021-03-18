@@ -11,8 +11,7 @@
 #pragma once
 
 #include "../JuceLibraryCode/JuceHeader.h"
-#include "Filters.h"
-
+#include "NonlinearFilters.h"
 
 
 #pragma region Abstract Classes
@@ -21,6 +20,8 @@ template <typename SampleType>
 class Compressor
 {
 public:
+
+    //platform dependent SIMD
     using SIMD = xsimd::simd_type<SampleType>;
     
     //common methods
@@ -44,16 +45,14 @@ protected:
     SIMD ctf(SIMD x) noexcept { return xsimd::select(x > thrlin, xsimd::pow(x / thrlin, exponent), SIMD(1.0)); }
 
     //parameters
-    SIMD thrlin = 1;
-    SIMD exponent;
-
-    SIMD dryLin = 0, wetLin = 1;
+    SIMD thrlin = SIMD(1.0), exponent = SIMD(0.0);
+    SIMD dryLin = SIMD(0.0), wetLin = SIMD(1.0);
 
     //spec
     size_t blockSize = 2;
 
     //state
-    SIMD rect, bf;
+    SIMD bf;
 };
 
 template<typename SampleType>
@@ -62,7 +61,9 @@ class Compressor_IIR : public Compressor<SampleType>
 public:
 
     void prepare(const double sampleRate, const int samplesPerBlock);
+
     void setAttack(SampleType attackMs) noexcept;
+
     void setRelease(SampleType releaseMs) noexcept;
 
 protected:
@@ -83,9 +84,7 @@ public:
 
 protected:
 
-
-    //ballistics filter
-    BallisticsFilter_TPT<SampleType> ballisticsFilter_TPTz;
+    BallisticsFilter_TPTz<SampleType> ballisticsFilter_TPTz;
 };
 
 template<typename SampleType>
@@ -101,13 +100,12 @@ public:
 
 protected:
 
-    //ballistics filter
     BallisticsFilter_TPT<SampleType> ballisticsFilter_TPT;
 };
 
 #pragma endregion
 
-#pragma region Final Classes
+#pragma region Linear 
 
 template<typename SampleType>
 class FFVCA_IIR final : public Compressor_IIR<SampleType>
@@ -175,7 +173,7 @@ public:
             //store output
             y = x * ctf(bf);
             //compressor transfer function and mixing
-            xsimd::store_aligned(&interleaved[i], (dryLin * x) + (wetLin * y);
+            xsimd::store_aligned(&interleaved[i], (dryLin * x) + (wetLin * y));
         }
     }
 
@@ -200,7 +198,7 @@ public:
             //store output
             y = x * ctf(bf);
             //compressor transfer function and mixing
-            xsimd::store_aligned(&interleaved[i], (dryLin * x) + (wetLin * y);
+            xsimd::store_aligned(&interleaved[i], (dryLin * x) + (wetLin * y));
         }
     }
 
@@ -218,8 +216,50 @@ class FBVCA_TPT final : public TPTCompressor<SampleType>
 
 #pragma endregion
 
-//TODO SIMD optimize branches, conditionals
-//TODO template classes
+#pragma region Nonlinear
+
+template<typename SampleType>
+class FFVCA_RL_Modulating_TPTz final : public Compressor<SampleType>
+{
+public:
+
+    void prepare(const double sampleRate, const int samplesPerBlock);
+    
+    void setAttack(SampleType attackMs) noexcept;
+    
+    void setRelease(SampleType releaseMs) noexcept;
+
+    void setLinearCutoffRL(SampleType cutoffHz) noexcept;
+
+    void setSaturationRL(SampleType saturationConstant) noexcept;
+
+    void setIntensityRL(SampleType intensitydB) noexcept;
+
+    void process(SampleType* interleaved) noexcept
+    {
+        for (size_t i = 0; i < blockSize; i += SIMD::size)
+        {
+            SIMD x = xsimd::load_aligned(&interleaved[i]);
+            //ballistics filter
+            bf = ballisticsFilter.processSample(x);
+            //nonlinear low pass
+            bf = rl.processSample(bf);
+            //compressor transfer function and mixing
+            xsimd::store_aligned(&interleaved[i], (dryLin * x) + (wetLin * x * ctf(bf)));
+        }
+    }
+
+private:
+    
+    //sidechain filters
+    BallisticsFilter_IIR<SampleType> ballisticsFilter;
+    RL_Modulating_TPTz<SampleType> rl;
+
+};
+
+#pragma endregion
+
+
 //TODO stereo link
 //TODO optimize set[Parameter] Methods
-//TODO SIMD exponentials, transcendentals, non JUCE SIMD
+
