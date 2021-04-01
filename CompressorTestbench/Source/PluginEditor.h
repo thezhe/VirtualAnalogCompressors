@@ -25,6 +25,8 @@ public:
     void resized() override;
 
 private:
+    
+    //dimension specs
     const int marginL = 120, marginT = 20;
     const int sliderDY = 30;
     const int sliderHeight = 20;
@@ -33,14 +35,16 @@ private:
     // access the processor object that created it.
     CompressorTestbenchAudioProcessor& audioProcessor;
 
+    //Processor Parameters
     juce::Label compressorLabel;
-    juce::Label attackLabel, releaseLabel, thresholdLabel, ratioLabel, wetLabel, dryLabel, topologyLabel;
-    juce::Slider attackSlider, releaseSlider, thresholdSlider, ratioSlider, wetSlider, drySlider;
-    juce::ComboBox topologyComboBox;
 
-    //RL only
-    juce::Label rlLabel, saturationLabel, intensityLabel, linearCutoffLabel;
-    juce::Slider saturationSlider, intensitySlider, linearCutoffSlider;
+    juce::Label attackLabel, releaseLabel, thresholdLabel, ratioLabel, wetLabel, dryLabel, sidechainLabel;
+    juce::Slider attackSlider, releaseSlider, thresholdSlider, ratioSlider, wetSlider, drySlider;
+    juce::ComboBox sidechainComboBox;
+
+    juce::Label rlToggleLabel, saturationRLLabel, linearTauRLLabel;
+    juce::ToggleButton rlToggle;
+    juce::Slider saturationRLSlider, linearTauRLSlider;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(CompressorTestbenchAudioProcessorEditor)
 };

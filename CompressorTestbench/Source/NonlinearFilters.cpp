@@ -8,13 +8,37 @@
   ==============================================================================
 */
 
+
 #include "NonlinearFilters.h"
 
+template<typename SampleType>
+void RL_Modulating_Riemann<SampleType>::setSaturation(SampleType saturationConstant) noexcept
+{
+    sat = SIMD(saturationConstant);
+}
 
 template<typename SampleType>
-inline void RL_Modulating_TPTz<SampleType>::prepare(const double sampleRate, const int samplesPerBlock)
+void RL_Modulating_Riemann<SampleType>::setLinearTau(SampleType linearTauMs) noexcept
 {
-    omegaLimit = SIMD(juce::MathConstants<SampleType>::twoPi * sampleRate * 0.45); //limit omega to slightly below Nyquist
+    wLinSq = SIMD(sqrt(1000.0 / linearTauMs));
+}
+
+template<typename SampleType>
+void RL_Modulating_Riemann<SampleType>::prepare(const double sampleRate, const int samplesPerBlock)
+{
+    reset();
+    MM1.prepare(sampleRate, samplesPerBlock);
+}
+
+template class RL_Modulating_Riemann<float>;
+template class RL_Modulating_Riemann<double>;
+
+/*
+template<typename SampleType>
+void RL_Modulating_TPTz<SampleType>::prepare(const double sampleRate, const int samplesPerBlock)
+{
+    omegaLimit = SIMD(MathConstants<SampleType>::twoPi * sampleRate * 0.45); //limit omega to slightly below Nyquist
+    y = SIMD(0.0);
     mm1_TPT.prepare(sampleRate, samplesPerBlock);
 }
 
@@ -45,5 +69,13 @@ void RL_Modulating_TPTz<SampleType>::setIntensity(SampleType intensitydB) noexce
     a = xsimd::sqrt(linearCutoffRad / g);
 }
 
+template<typename SampleType>
+void RL_Modulating_TPTz<SampleType>::reset()
+{
+    y = SIMD(0.0);
+    mm1_TPT.reset();
+}
+
 template class RL_Modulating_TPTz<float>;
 template class RL_Modulating_TPTz<double>;
+*/

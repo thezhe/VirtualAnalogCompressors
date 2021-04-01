@@ -1,0 +1,7 @@
+Common Parameters:
+Attack 0.01
+Release 0.01
+Threshold -3
+Ratio 100
+Wet 0
+Dry -90

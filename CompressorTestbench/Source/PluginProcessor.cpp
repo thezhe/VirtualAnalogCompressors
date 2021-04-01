@@ -95,27 +95,18 @@ void CompressorTestbenchAudioProcessor::changeProgramName (int index, const juce
 //==============================================================================
 void CompressorTestbenchAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
+    //prepare processors
+    compressor.prepare(sampleRate, samplesPerBlock);
+
     //prepare SIMD
     interleaved = juce::dsp::AudioBlock<float>(interleavedBlockData, 1, samplesPerBlock*SIMD::size);
     zero = juce::dsp::AudioBlock<float>(zeroData, SIMD::size, samplesPerBlock);
     zero.clear();
-
-    //prepare compressors
-    ffvcaIIR.prepare(sampleRate, samplesPerBlock);
-    ffvcaTPTz.prepare(sampleRate, samplesPerBlock);
-    ffvcaTPT.prepare(sampleRate, samplesPerBlock);
-
-    fbvcaIIR.prepare(sampleRate, samplesPerBlock);
-    fbvcaTPTz.prepare(sampleRate, samplesPerBlock);
-
-    ffvca_RL_Modulating_TPTz.prepare(sampleRate, samplesPerBlock);
-    
 }
 
 void CompressorTestbenchAudioProcessor::releaseResources()
 {
-    // When playback stops, you can use this as an opportunity to free up any
-    // spare memory, etc.
+    compressor.reset();
 }
 
 #ifndef JucePlugin_PreferredChannelConfigurations
@@ -146,6 +137,7 @@ bool CompressorTestbenchAudioProcessor::isBusesLayoutSupported (const BusesLayou
 
 void CompressorTestbenchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages)
 {
+    //disable denormals via hardware flag
     juce::ScopedNoDenormals noDenormals;
     auto totalNumInputChannels  = getTotalNumInputChannels();
     auto totalNumOutputChannels = getTotalNumOutputChannels();
@@ -170,27 +162,7 @@ void CompressorTestbenchAudioProcessor::processBlock (juce::AudioBuffer<float>& 
     );
 
     //process
-    switch (currentCompressor)
-    {
-        case FF_IIR:
-            ffvcaIIR.process(interleaved.getChannelPointer(0));
-            break;
-        case FF_TPTZ:
-            ffvcaTPTz.process(interleaved.getChannelPointer(0));
-            break;
-        case FF_TPT:
-            ffvcaTPT.process(interleaved.getChannelPointer(0));
-            break;
-        case FB_IIR:
-            fbvcaIIR.process(interleaved.getChannelPointer(0));
-            break;
-        case FB_TPTZ:
-            fbvcaTPTz.process(interleaved.getChannelPointer(0));
-            break;
-        default:
-            ffvca_RL_Modulating_TPTz.process(interleaved.getChannelPointer(0));
-            break;
-    }
+    compressor.process(interleaved.getChannelPointer(0));
     
     //deinterleave
     juce::AudioDataConverters::deinterleaveSamples(

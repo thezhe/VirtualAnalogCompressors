@@ -10,87 +10,81 @@
 
 #include "Filters.h"
 
+#pragma region Multimode1_Riemann
+
+template<typename SampleType>
+xsimd::simd_type<SampleType> Multimode1_Riemann<SampleType>::tauToG(SampleType tauMs) noexcept
+{
+    return SIMD(1.0 - exp(mT1000 / tauMs)); //1-e^(1 / (sampleRate * tau)) = 1-e^(T*1000/tauMs) 
+}
+
+template<typename SampleType>
+void Multimode1_Riemann<SampleType>::setTau(SampleType tauMs) noexcept
+{
+    setG(tauToG(tauMs));
+}
+
+template<typename SampleType>
+void Multimode1_Riemann<SampleType>::prepare(const double sampleRate, const int samplesPerBlock)
+{
+    reset();
+    mT = -1.0 / sampleRate;
+    mT1000 = -1000.0 / sampleRate;
+    interleavedSize = SIMD::size * samplesPerBlock;
+}
+
+// "How can I avoid linker errors with my template classes?" 
+//https://isocpp.org/wiki/faq/templates#separate-template-fn-defn-from-decl
+template class Multimode1_Riemann <float>;
+template class Multimode1_Riemann <double>;
+
+#pragma endregion
+
 #pragma region Multimode1_TPT
 
 template<typename SampleType>
 void Multimode1_TPT<SampleType>::prepare(const double sampleRate, const int samplesPerBlock)
 {
-    T500 = 500.0 / sampleRate;
-    Tpi = juce::MathConstants<SampleType>::pi / sampleRate;
-    T_2 = SIMD(0.5 / sampleRate);
+    reset();
+    Tpi = MathConstants<SampleType>::pi / sampleRate;
     interleavedSize = samplesPerBlock*SIMD::size;
-}
-
-template<typename SampleType>
-void Multimode1_TPT<SampleType>::setAttack(SampleType attackMs) noexcept
-{
-    SampleType g = tan(T500 / attackMs); //tan((T/2) * w) = tan((T/2) * (1000/attackMs))
-    G = SIMD(g / (1.0 + g));
 }
 
 template<typename SampleType>
 void Multimode1_TPT<SampleType>::setCutoff(SampleType cutoffHz) noexcept
 {
-    SampleType g = tan(Tpi * cutoffHz); //tan((T/2) * w) = tan((T/2) * 2 * PI * cutoffHz)
+    SampleType g = tan(Tpi * cutoffHz);
     G = SIMD(g / (1.0 + g));
 }
 
-// "How can I avoid linker errors with my template classes?" https://isocpp.org/wiki/faq/templates#separate-template-fn-defn-from-decl
 template class Multimode1_TPT <float>;
 template class Multimode1_TPT <double>;
 
 #pragma endregion
 
-#pragma region BallisticsFilter_IIR
+#pragma region BallisticsFilter
 
 template<typename SampleType>
-void BallisticsFilter_IIR<SampleType>::prepare(double sampleRate, int samplesPerBlock) { T_m1k = -1000.0 / sampleRate; }
-
-template<typename SampleType>
-void BallisticsFilter_IIR<SampleType>::setAttack(SampleType attackMs) noexcept { a_a = SIMD(exp(T_m1k / attackMs)); } //exp(-w*T) = exp((-1000/attackMs)*T)
-
-template<typename SampleType>
-void BallisticsFilter_IIR<SampleType>::setRelease(SampleType releaseMs) noexcept { a_r = SIMD(exp(T_m1k / releaseMs)); }
-
-template class BallisticsFilter_IIR<float>;
-template class BallisticsFilter_IIR<double>;
-
-#pragma endregion
-
-#pragma region BallisticsFilter_TPTtype
-
-template<typename SampleType>
-void BallisticsFilter_TPTtype<SampleType>::prepare(double sampleRate, int samplesPerBlock) { T500 = 500.0 / sampleRate; }
-
-template<typename SampleType>
-void BallisticsFilter_TPTtype<SampleType>::setAttack(SampleType attackMs) noexcept
+void BallisticsFilter<SampleType>::prepare(double sampleRate, int samplesPerBlock)
 {
-    SampleType g = tan(T500 / attackMs); //tan((T/2) * w) = tan((T/2) * (1000/attackMs))
-    Ga = SIMD(g / (1.0 + g));
+    reset();
+    MM1.prepare(sampleRate, samplesPerBlock);
 }
 
 template<typename SampleType>
-void BallisticsFilter_TPTtype<SampleType>::setRelease(SampleType releaseMs) noexcept
+void BallisticsFilter<SampleType>::setAttack(SampleType attackMs) noexcept
 {
-    SampleType g = tan(T500 / releaseMs);
-    Gr = SIMD(g / (1.0 + g));
+    Ga = MM1.tauToG(attackMs);
 }
 
-template class BallisticsFilter_TPTtype<float>;
-template class BallisticsFilter_TPTtype<double>;
+template<typename SampleType>
+void BallisticsFilter<SampleType>::setRelease(SampleType releaseMs) noexcept
+{
+    Gr = MM1.tauToG(releaseMs);
+}
 
-#pragma endregion
 
-#pragma region BallisticsFilter_TPTz
-
-template class BallisticsFilter_TPTz<float>;
-template class BallisticsFilter_TPTz<double>;
-
-#pragma endregion
-
-#pragma region BallisticsFilter_TPT
-
-template class BallisticsFilter_TPT<float>;
-template class BallisticsFilter_TPT<double>;
+template class BallisticsFilter<float>;
+template class BallisticsFilter<double>;
 
 #pragma endregion
