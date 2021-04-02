@@ -46,7 +46,7 @@ public:
     /** Process a single SIMD sample */
     SIMD processSample(SIMD x) noexcept
     {
-        MM1.setOmega(xsimd::pow(wLinSq + xsimd::abs(y), SIMD(2.0)));
+        MM1.setOmega(xsimd::min(xsimd::pow(wLinSq + sat*xsimd::abs(y), SIMD(2.0)), omegaLimit));
         y = MM1.processSample(x);
         return y;
     }
@@ -64,6 +64,7 @@ private:
 
     //spec
     SampleType interleavedSize;
+    SIMD omegaLimit;
 
     //parameters
     SIMD wLinSq, sat;
@@ -126,5 +127,5 @@ private:
 
 #pragma endregion
 
-//TODO RL models Cutoff Mod, Jiles
+//TODO RL models Cutoff Mod TPT, Jiles
 

@@ -27,6 +27,7 @@ template<typename SampleType>
 void RL_Modulating_Riemann<SampleType>::prepare(const double sampleRate, const int samplesPerBlock)
 {
     reset();
+    omegaLimit = SIMD(MathConstants<SampleType>::twoPi * 0.45 * sampleRate);
     MM1.prepare(sampleRate, samplesPerBlock);
 }
 

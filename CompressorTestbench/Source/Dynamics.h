@@ -41,18 +41,26 @@ public:
 
     void setDry(SampleType drydB) noexcept;
     
+    void setStereoLink(bool enableStereoLink) noexcept
+    {
+        ballisticsFilter.setStereoLink(enableStereoLink);
+    }
+
     void setAttack(SampleType attackMs) noexcept;
     
     void setRelease(SampleType releaseMs) noexcept;
 
-    void enableRL(bool enable) noexcept { RLenabled = enable; }
+    void setRL(bool enableRL) noexcept 
+    { 
+        RL = enableRL; 
+    }
 
     void setLinearTauRL(SampleType linearTauMs) noexcept;
 
     void setSaturationRL(SampleType saturationConstant) noexcept;
 
     void prepare(const double sampleRate, const int samplesPerBlock);
-
+    
     void reset()
     {
         ballisticsFilter.reset();
@@ -68,7 +76,7 @@ public:
             y
         );
         //RL
-        if (RLenabled) b = frohlichRL.processSample(b);
+        if (RL) b = frohlichRL.processSample(b);
         //ctf        
         y = x * ctf(b);
         //mix
@@ -97,7 +105,7 @@ private:
     SIMD thrlin = SIMD(1.0), exponent = SIMD(0.0);
     SIMD dryLin = SIMD(0.0), wetLin = SIMD(1.0);
     SidechainType sidechain = SidechainType::Feedforward;
-    bool RLenabled = false;
+    bool RL = false;
     
     //filters
     BallisticsFilter<SampleType> ballisticsFilter;
@@ -108,6 +116,11 @@ private:
 };
 
 
+
+//TODO sidechain support
+//TODO expansion (upwards and downwards) and compression (upwards and downwards)
 //TODO stereo link
 //TODO soft knee
 //TODO optimize set[Parameter] Methods
+//TODO second order DET for better noise floor?
+//TODO input gain

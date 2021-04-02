@@ -141,6 +141,7 @@ void CompressorTestbenchAudioProcessor::processBlock (juce::AudioBuffer<float>& 
     juce::ScopedNoDenormals noDenormals;
     auto totalNumInputChannels  = getTotalNumInputChannels();
     auto totalNumOutputChannels = getTotalNumOutputChannels();
+    Spec::setNumChannels(totalNumInputChannels);
     
     //clear extra buffer channels
     for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)

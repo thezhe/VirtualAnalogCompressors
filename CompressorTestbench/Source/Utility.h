@@ -12,6 +12,17 @@
 
 #pragma once
 
+
+namespace Spec
+{
+    static size_t numChannels = 1;
+
+    static void setNumChannels(size_t n)
+    {
+        numChannels = n;
+    }
+}
+
 namespace Decibels
 {
     //lowest dB value
@@ -45,3 +56,4 @@ struct MathConstants
     /** A predefined value for 2 * Pi */
     static constexpr FloatType twoPi = static_cast<FloatType> (2 * 3.141592653589793238L);
 };
+

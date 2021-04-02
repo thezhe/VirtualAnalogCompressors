@@ -171,22 +171,36 @@ public:
 
     using SIMD = xsimd::simd_type<SampleType>;
 
-    void prepare(double sampleRate, int samplesPerBlock);
-
     void setAttack(SampleType attackMs) noexcept;
 
     void setRelease(SampleType releaseMs) noexcept;
+
+    /** Enable or disable stereo linking
+    *
+    *   Note: Stereo linking replaces detector with the average value between channels 
+    */
+    void setStereoLink(bool enableStereoLink)
+    {
+        stereoLink = enableStereoLink;
+    }
+
+    void prepare(double sampleRate, int samplesPerBlock);
 
     void reset()
     {
         MM1.reset();
     }
 
-    /** Process a SIMD register */
+    /** Process a SIMD register 
+    *
+    *   Note: Unused channels must be zeroed for stereo link to function
+    */
     SIMD processSample(SIMD x) noexcept
     {
         //detector
         detector = xsimd::abs(x);
+        //stereo link
+        if (stereoLink) detector = xsimd::hadd(detector) / SIMD(Spec::numChannels);
         //branching cutoff
         MM1.setG(xsimd::select(detector < y, Gr, Ga)); // rect < y ? Ga : Gr 
         //filter
@@ -201,6 +215,7 @@ private:
 
     //parameters
     SIMD Gr = SIMD(0.5), Ga = SIMD(0.5);
+    bool stereoLink = false;
 
     //outputs
     SIMD detector, y;

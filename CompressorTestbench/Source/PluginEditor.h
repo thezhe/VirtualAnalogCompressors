@@ -38,9 +38,10 @@ private:
     //Processor Parameters
     juce::Label compressorLabel;
 
-    juce::Label attackLabel, releaseLabel, thresholdLabel, ratioLabel, wetLabel, dryLabel, sidechainLabel;
+    juce::Label attackLabel, releaseLabel, thresholdLabel, ratioLabel, wetLabel, dryLabel, sidechainLabel, stereoLinkLabel;
     juce::Slider attackSlider, releaseSlider, thresholdSlider, ratioSlider, wetSlider, drySlider;
     juce::ComboBox sidechainComboBox;
+    juce::ToggleButton stereoLinkToggle;
 
     juce::Label rlToggleLabel, saturationRLLabel, linearTauRLLabel;
     juce::ToggleButton rlToggle;
@@ -48,3 +49,5 @@ private:
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(CompressorTestbenchAudioProcessorEditor)
 };
+
+//TODO stereo link toggle

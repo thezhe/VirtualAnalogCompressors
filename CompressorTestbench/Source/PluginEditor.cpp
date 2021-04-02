@@ -104,11 +104,21 @@ CompressorTestbenchAudioProcessorEditor::CompressorTestbenchAudioProcessorEditor
     sidechainLabel.setText("Topology", juce::dontSendNotification);
     sidechainLabel.attachToComponent(&sidechainComboBox, true);
 
+    //Stereo Link Toggle
+    addAndMakeVisible(stereoLinkToggle);
+    stereoLinkToggle.onStateChange = [this]
+    {
+        audioProcessor.compressor.setStereoLink(stereoLinkToggle.getToggleState());
+    };
+    addAndMakeVisible(stereoLinkLabel);
+    stereoLinkLabel.setText("Stereo Link", juce::dontSendNotification);
+    stereoLinkLabel.attachToComponent(&stereoLinkToggle, true);
+
     //RL Toggle
     addAndMakeVisible(rlToggle);
     rlToggle.onStateChange = [this]
     {
-        audioProcessor.compressor.enableRL(rlToggle.getToggleState());
+        audioProcessor.compressor.setRL(rlToggle.getToggleState());
     };
     addAndMakeVisible(rlToggleLabel);
     rlToggleLabel.setText("RL", juce::dontSendNotification);
@@ -129,7 +139,7 @@ CompressorTestbenchAudioProcessorEditor::CompressorTestbenchAudioProcessorEditor
 
     //Saturation
     addAndMakeVisible(saturationRLSlider);
-    saturationRLSlider.setRange(0, 500);
+    saturationRLSlider.setRange(0, 2000);
     saturationRLSlider.setSkewFactorFromMidPoint(50);
     saturationRLSlider.onValueChange = [this] 
     {
@@ -142,19 +152,20 @@ CompressorTestbenchAudioProcessorEditor::CompressorTestbenchAudioProcessorEditor
     //Use sendNotificationSync or else initial values do not trigger onValueChanged Lambdas properly
     //https://forum.juce.com/t/slider-onvaluechange-callback-behaves-unexpectedly/32677/4
     //initial values
-    attackSlider.setValue(75, juce::sendNotificationSync);
-    releaseSlider.setValue(150, juce::sendNotificationSync);
-    thresholdSlider.setValue(-20, juce::sendNotificationSync);
+    attackSlider.setValue(5, juce::sendNotificationSync);
+    releaseSlider.setValue(50, juce::sendNotificationSync);
+    thresholdSlider.setValue(-40, juce::sendNotificationSync);
     ratioSlider.setValue(100, juce::sendNotificationSync);
     wetSlider.setValue(0, juce::sendNotificationSync);
     drySlider.setValue(-90, juce::sendNotificationSync);
     sidechainComboBox.setSelectedId(1, juce::sendNotificationSync);
-    
-    rlToggle.setToggleState(false, juce::sendNotificationSync);
-    linearTauRLSlider.setValue(15, juce::sendNotificationSync);
-    saturationRLSlider.setValue(0, juce::sendNotificationSync);
+    stereoLinkToggle.setToggleState(false, juce::sendNotificationSync);
 
-    setSize (400, 2 * marginT + 11 * sliderDY);
+    rlToggle.setToggleState(false, juce::sendNotificationSync);
+    linearTauRLSlider.setValue(40, juce::sendNotificationSync);
+    saturationRLSlider.setValue(5, juce::sendNotificationSync);
+
+    setSize (400, 2 * marginT + 12 * sliderDY);
 }
 
 CompressorTestbenchAudioProcessorEditor::~CompressorTestbenchAudioProcessorEditor()
@@ -186,8 +197,9 @@ void CompressorTestbenchAudioProcessorEditor::resized()
     wetSlider.setBounds(marginL, marginT + 5 * sliderDY, sliderWidth, sliderHeight);
     drySlider.setBounds(marginL, marginT + 6 * sliderDY, sliderWidth, sliderHeight);
     sidechainComboBox.setBounds(marginL, marginT + 7 * sliderDY, sliderWidth, sliderHeight);
+    stereoLinkToggle.setBounds(marginL, marginT + 8 * sliderDY, sliderWidth, sliderHeight);
 
-    rlToggle.setBounds(labelL, marginT + 8 * sliderDY, labelWidth, sliderHeight);
-    linearTauRLSlider.setBounds(marginL, marginT + 9 * sliderDY, sliderWidth, sliderHeight);
-    saturationRLSlider.setBounds(marginL, marginT + 10 * sliderDY, sliderWidth, sliderHeight);
+    rlToggle.setBounds(labelL, marginT + 9 * sliderDY, labelWidth, sliderHeight);
+    linearTauRLSlider.setBounds(marginL, marginT + 10 * sliderDY, sliderWidth, sliderHeight);
+    saturationRLSlider.setBounds(marginL, marginT + 11 * sliderDY, sliderWidth, sliderHeight);
 }
