@@ -1,5 +1,7 @@
 /*
   ==============================================================================
+    Nonlinear filters derived from linear filters.
+
     Zhe Deng 2020
     thezhefromcenterville@gmail.com
 
@@ -24,11 +26,10 @@ void RL_Modulating_Riemann<SampleType>::setLinearTau(SampleType linearTauMs) noe
 }
 
 template<typename SampleType>
-void RL_Modulating_Riemann<SampleType>::prepare(const double sampleRate, const int samplesPerBlock)
+void RL_Modulating_Riemann<SampleType>::prepare(double sampleRate, int samplesPerBlock, int numInputChannels)
 {
-    reset();
     omegaLimit = SIMD(MathConstants<SampleType>::twoPi * 0.45 * sampleRate);
-    MM1.prepare(sampleRate, samplesPerBlock);
+    LP1.prepare(sampleRate, samplesPerBlock, numInputChannels);
 }
 
 template class RL_Modulating_Riemann<float>;

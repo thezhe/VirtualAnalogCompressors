@@ -1,6 +1,6 @@
 /*
   ==============================================================================
-    Static functions and constants for utility. Inspired by sections from JUCE.
+    Static functions, constants, and abstract classes -- inspired by JUCE.
     
     Zhe Deng 2021
     thezhefromcenterville@gmail.com
@@ -11,17 +11,19 @@
 */
 
 #pragma once
+#include "xsimd/xsimd.hpp"
 
-
-namespace Spec
+/** Abstract base class for all effect processors */
+template<typename SampleType>
+class Processor
 {
-    static size_t numChannels = 1;
+public:
 
-    static void setNumChannels(size_t n)
-    {
-        numChannels = n;
-    }
-}
+    using SIMD = xsimd::simd_type<SampleType>;
+
+    /** Reset the internal state */
+    virtual void reset() = 0;
+};
 
 namespace Decibels
 {
@@ -57,3 +59,5 @@ struct MathConstants
     static constexpr FloatType twoPi = static_cast<FloatType> (2 * 3.141592653589793238L);
 };
 
+
+//TODO static functions (ctfs, ttfs, detector, etc)

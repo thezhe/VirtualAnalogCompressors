@@ -21,8 +21,137 @@ CompressorTestbenchAudioProcessor::CompressorTestbenchAudioProcessor()
                       #endif
                        .withOutput ("Output", juce::AudioChannelSet::stereo(), true)
                      #endif
-                       )
+                       ),
+#else
+    :
 #endif
+parameters
+(
+    *this, 
+    nullptr, 
+    juce::Identifier("CompressorTestBench"),
+    {
+        std::make_unique<juce::AudioParameterChoice>
+        (
+            "sidechainInput",
+            "Sidechain Input",
+            juce::StringArray
+            ({
+                "Feedforward",
+                "Feedback",
+                "Sidechain"
+            }),
+            0
+        ),
+    
+        std::make_unique<juce::AudioParameterFloat>
+        (
+            "sidechainInputGain",
+            "Sidechain Input Gain",
+            juce::NormalisableRange<float>(-6.f, 24.f),
+            0.f
+        ),
+
+        std::make_unique<juce::AudioParameterChoice>
+        (
+            "detector",
+            "Detector",
+            juce::StringArray
+            ({
+                "Peak",
+                "Half Wave Rectifier",
+                "Full Wave Rectifier",
+                "LUFS"
+            }),
+            0
+        ),
+
+        std::make_unique<juce::AudioParameterBool>
+        (
+            "stereoLink",
+            "Stereo Link",
+            true
+        ),
+
+        std::make_unique<juce::AudioParameterFloat>
+        (
+            "threshold",
+            "Threshold",
+            juce::NormalisableRange<float>(-60.f, 0.f),
+            -40.f
+        ),
+        
+        std::make_unique<juce::AudioParameterFloat>
+        (
+            "ratio",
+            "Ratio",
+            juce::NormalisableRange<float>(1.f, 50.f),
+            50.f
+        ),
+
+        std::make_unique<juce::AudioParameterFloat>
+        (
+            "attack",
+            "Attack",
+            juce::NormalisableRange<float>(1.f, 100.f),
+            5.f
+        ),
+
+        std::make_unique<juce::AudioParameterFloat>
+        (
+            "release",
+            "Release",
+            juce::NormalisableRange<float>(1.f, 250.f),
+            50.f
+        ),
+
+        std::make_unique<juce::AudioParameterBool>
+        (
+            "RMS",
+            "RMS",
+            false
+        ),
+
+        std::make_unique<juce::AudioParameterBool>
+        (
+            "RL",
+            "RL",
+            false
+        ),
+
+        std::make_unique<juce::AudioParameterFloat>
+        (
+            "linearTauRL",
+            "RL Linear Tau",
+            juce::NormalisableRange<float>(1.f, 100.f),
+            1.f
+        ),
+
+        std::make_unique<juce::AudioParameterFloat>
+        (
+            "nonlinearityRL",
+            "RL nonlinearity",
+            juce::NormalisableRange<float>(0.f, 1.f),
+            0.f
+        ),
+
+        std::make_unique<juce::AudioParameterFloat>
+        (
+            "wet",
+            "Wet",
+            juce::NormalisableRange<float>(-60.f, 0.f),
+            0.f
+        ),
+
+        std::make_unique<juce::AudioParameterFloat>
+        (
+            "dry",
+            "Dry",
+            juce::NormalisableRange<float>(-100.f, 0.f),
+            -100.f
+        )
+    }
+)
 {
 }
 
@@ -95,8 +224,13 @@ void CompressorTestbenchAudioProcessor::changeProgramName (int index, const juce
 //==============================================================================
 void CompressorTestbenchAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
+#ifdef DEBUG
+    functionTimer.prepare(1000);
+#endif 
+
+
     //prepare processors
-    compressor.prepare(sampleRate, samplesPerBlock);
+    compressor.prepare(sampleRate, samplesPerBlock, 2);
 
     //prepare SIMD
     interleaved = juce::dsp::AudioBlock<float>(interleavedBlockData, 1, samplesPerBlock*SIMD::size);
@@ -137,16 +271,19 @@ bool CompressorTestbenchAudioProcessor::isBusesLayoutSupported (const BusesLayou
 
 void CompressorTestbenchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages)
 {
+#ifdef DEBUG
+    functionTimer.start();
+#endif
+
     //disable denormals via hardware flag
     juce::ScopedNoDenormals noDenormals;
     auto totalNumInputChannels  = getTotalNumInputChannels();
     auto totalNumOutputChannels = getTotalNumOutputChannels();
-    Spec::setNumChannels(totalNumInputChannels);
     
     //clear extra buffer channels
     for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
         buffer.clear(i, 0, buffer.getNumSamples());
-   
+
     //get channel pointers
     auto* inout = channelPointers.getData();
     for (size_t ch = 0; ch < juce::dsp::SIMDRegister<float>::size(); ++ch)
@@ -172,7 +309,11 @@ void CompressorTestbenchAudioProcessor::processBlock (juce::AudioBuffer<float>& 
         buffer.getNumSamples(),
         SIMD::size
         );
-        
+
+#ifdef DEBUG
+    functionTimer.stop();
+#endif
+
 }
 
 //==============================================================================
@@ -183,21 +324,24 @@ bool CompressorTestbenchAudioProcessor::hasEditor() const
 
 juce::AudioProcessorEditor* CompressorTestbenchAudioProcessor::createEditor()
 {
-    return new CompressorTestbenchAudioProcessorEditor (*this);
+    return new CompressorTestbenchAudioProcessorEditor (*this, parameters);
 }
 
 //==============================================================================
 void CompressorTestbenchAudioProcessor::getStateInformation (juce::MemoryBlock& destData)
 {
-    // You should use this method to store your parameters in the memory block.
-    // You could do that either as raw data, or use the XML or ValueTree classes
-    // as intermediaries to make it easy to save and load complex data.
+    auto state = parameters.copyState();
+    std::unique_ptr<juce::XmlElement> xml(state.createXml());
+    copyXmlToBinary(*xml, destData);
 }
 
 void CompressorTestbenchAudioProcessor::setStateInformation (const void* data, int sizeInBytes)
 {
-    // You should use this method to restore your parameters from this memory block,
-    // whose contents will have been created by the getStateInformation() call.
+    std::unique_ptr<juce::XmlElement> xmlState(getXmlFromBinary(data, sizeInBytes));
+
+    if (xmlState.get() != nullptr)
+        if (xmlState->hasTagName(parameters.state.getType()))
+            parameters.replaceState(juce::ValueTree::fromXml(*xmlState));
 }
 
 //==============================================================================

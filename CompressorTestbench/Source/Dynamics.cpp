@@ -25,13 +25,19 @@ void Compressor<SampleType>::setRatio(SampleType ratioR) noexcept
 }
 
 template<typename SampleType>
-void Compressor<SampleType>::setWet(SampleType wetdB) noexcept 
+void Compressor<SampleType>::setInputGain(SampleType inputdB) noexcept
+{
+    inLin = SIMD(Decibels::decibelsToGain(inputdB));
+}
+
+template<typename SampleType>
+void Compressor<SampleType>::setWetGain(SampleType wetdB) noexcept 
 { 
     wetLin = SIMD(Decibels::decibelsToGain(wetdB)); 
 }
 
 template<typename SampleType>
-void Compressor<SampleType>::setDry(SampleType drydB) noexcept 
+void Compressor<SampleType>::setDryGain(SampleType drydB) noexcept 
 { 
     dryLin = SIMD(Decibels::decibelsToGain(drydB)); 
 }
@@ -61,12 +67,13 @@ void Compressor<SampleType>::setSaturationRL(SampleType saturationConstant) noex
 }
 
 template<typename SampleType>
-void Compressor<SampleType>::prepare(const double sampleRate, const int samplesPerBlock)
+void Compressor<SampleType>::prepare(double sampleRate, int samplesPerBlock, int numInputChannels)
 {
-    reset();
-    ballisticsFilter.prepare(sampleRate, samplesPerBlock);
-    frohlichRL.prepare(sampleRate, samplesPerBlock);
-    interleavedSize = samplesPerBlock * SIMD::size;
+    interleavedSize = SIMD::size * samplesPerBlock;
+
+    detector.prepare(sampleRate, samplesPerBlock, numInputChannels);
+    ballisticsFilter.prepare(sampleRate, samplesPerBlock, numInputChannels);
+    frohlichRL.prepare(sampleRate, samplesPerBlock, numInputChannels);
 }
 
 template class Compressor<float>;
@@ -74,6 +81,35 @@ template class Compressor<double>;
 
 #pragma endregion
 
-#pragma region Transient Designer
-
-#pragma endregion
+//#pragma region Transient Designer
+//
+//template<typename SampleType>
+//void TransientDesigner<SampleType>::setInputGain(SampleType inputdB) noexcept
+//{
+//    inLin = SIMD(Decibels::decibelsToGain(inputdB));
+//}
+//
+//template<typename SampleType>
+//void TransientDesigner<SampleType>::setWetGain(SampleType wetdB) noexcept
+//{
+//    wetLin = SIMD(Decibels::decibelsToGain(wetdB));
+//}
+//
+//template<typename SampleType>
+//void TransientDesigner<SampleType>::setDryGain(SampleType drydB) noexcept
+//{
+//    dryLin = SIMD(Decibels::decibelsToGain(drydB));
+//}
+//
+//template<typename SampleType>
+//void TransientDesigner<SampleType>::prepare(double sampleRate, int samplesPerBlock, int numInputChannels)
+//{
+//    Processor<SampleType>::prepare(double sampleRate, int samplesPerBlock, int numInputChannels);
+//
+//    det.prepare(sampleRate, samplesPerBlock, numInputChannels);
+//}
+//
+//template class TransientDesigner<float>;
+//template class TransientDesigner<double>;
+//
+//#pragma endregion

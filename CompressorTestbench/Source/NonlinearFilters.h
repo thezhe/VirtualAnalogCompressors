@@ -14,20 +14,19 @@
 
 #pragma region Inductors
 
-/** Nonlinear RL filter based on modulating cutoff model
+/** Nonlinear RL low-pass filter based on modulating cutoff model
 *
-*   Note 1: Use for time domain effects.
+*   Note: Use for time domain effects. Implementation is based on
+*   left Riemann sum integrator and unit delay feedback resolution.
 */
 template<typename SampleType>
-class RL_Modulating_Riemann
+class RL_Modulating_Riemann : public Processor<SampleType>
 {
 public:
     
-    using SIMD = xsimd::simd_type<SampleType>;
-    
     /** Set the inductor saturation
     *
-    *   Note: A good range is [0, 1000] with log tapered controls
+    *   Note: A good range is [0, 500] with log tapered controls
     */
     void setSaturation(SampleType saturationConstant) noexcept;
 
@@ -35,35 +34,25 @@ public:
     void setLinearTau(SampleType linearTauMs) noexcept;
 
     /** Set the processing specifications */
-    void prepare(const double sampleRate, const int samplesPerBlock);
+    void prepare(double sampleRate, int samplesPerBlock, int numInputChannels);
 
     /** Reset the internal state*/
     void reset() 
     {
-        MM1.reset();
+        LP1.reset();
     }
 
     /** Process a single SIMD sample */
     SIMD processSample(SIMD x) noexcept
     {
-        MM1.setOmega(xsimd::min(xsimd::pow(wLinSq + sat*xsimd::abs(y), SIMD(2.0)), omegaLimit));
-        y = MM1.processSample(x);
+        LP1.setOmega(xsimd::min(xsimd::pow(wLinSq + sat*xsimd::abs(y), SIMD(2.0)), omegaLimit));
+        y = LP1.processSample(x);
         return y;
     }
 
-    /** Process an interleaved, SIMD-aligned buffer */
-    void process(SampleType* interleaved) noexcept
-    {
-        for (size_t i = 0; i < interleavedSize; i += SIMD::size)
-        {
-            SIMD x = xsimd::load_aligned(&interleaved[i]);
-            xsimd::store_aligned(&interleaved[i], processSample(x));
-        }
-    }
 private:
 
     //spec
-    SampleType interleavedSize;
     SIMD omegaLimit;
 
     //parameters
@@ -73,7 +62,7 @@ private:
     SIMD y;
 
     //filter
-    Multimode1_Riemann<SampleType> MM1;
+    LP1_Riemann<SampleType> LP1;
 };
 
 /*

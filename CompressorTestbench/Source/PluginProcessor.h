@@ -13,6 +13,11 @@
 #include <JuceHeader.h>
 #include "Dynamics.h"
 
+#ifdef DEBUG
+#include "DebugTools.h"
+#endif
+
+
 //==============================================================================
 /**
 */
@@ -60,14 +65,21 @@ public:
     //==============================================================================
     //Non JUCE Code Below
     //==============================================================================
-
+    
     using SIMD = xsimd::simd_type<float>;
+
+    //Performance Profiling
+#ifdef DEBUG
+    FunctionTimer functionTimer;
+#endif
 
     //Processors
     Compressor<float> compressor;
 
 private:
 
+    //parameters
+    juce::AudioProcessorValueTreeState parameters;
 
     //SIMD optimization          
     juce::dsp::AudioBlock<float> interleaved, zero;
@@ -77,6 +89,7 @@ private:
     //==============================================================================
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(CompressorTestbenchAudioProcessor)
 };
+
 //TODO double support
-//TODO SIMD
-//TODO parameters
+//TODO SIMD with audiobuffers?
+//TODO load/saveable parameters
