@@ -42,18 +42,6 @@ void Multimode1<SampleType>::prepare(SampleType sampleRate, size_t numInputChann
 {
     T_2 = SampleType(0.5) / sampleRate;
 
-    omegaToG.prepare
-    (
-        [this](SampleType x)
-        {
-            auto g = tan(x * T_2);
-            return g / (SampleType(1.0) + g);
-        },
-        0,
-        MathConstants<SampleType>::pi * SampleType(0.499) * sampleRate, //limit omega
-        512
-    );
-
     _s1.resize(numInputChannels);
 
     reset();
@@ -72,7 +60,7 @@ template <typename SampleType>
 void MonoConverter<SampleType>::prepare(size_t samplesPerBlock, size_t numInputChannels)
 {
     numChannels = numInputChannels;
-    divNumChannels = SampleType(1.0) / SampleType(numInputChannels);
+    divNumChannels = SampleType(1.0) / numInputChannels;
 }
 
 template class MonoConverter<float>;
@@ -141,7 +129,7 @@ void Detector<SampleType>::reset()
 }
 
 template<typename SampleType>
-void Detector<SampleType>::prepare(double sampleRate, int samplesPerBlock, size_t numInputChannels)
+void Detector<SampleType>::prepare(SampleType sampleRate, size_t samplesPerBlock, size_t numInputChannels)
 {
     monoConverter.prepare(samplesPerBlock, numInputChannels);
     kFilter.prepare(sampleRate, numInputChannels);

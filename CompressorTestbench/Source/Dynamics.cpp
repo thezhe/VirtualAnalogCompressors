@@ -117,8 +117,11 @@ void DynamicsProcessor<SampleType>::setDryGain(SampleType drydB) noexcept
 template<typename SampleType>
 void DynamicsProcessor<SampleType>::reset()
 {
-    //filters
+    //detector
     detector.reset();
+
+    //filters
+    nlMM1.reset();
     nlBallisticsFilter.reset();
     nlDET.reset();
 
@@ -133,6 +136,7 @@ void DynamicsProcessor<SampleType>::prepare(SampleType sampleRate, size_t sample
     detector.prepare(sampleRate, samplesPerBlock, numInputChannels);
 
     //filters
+    nlMM1.prepare(sampleRate, numInputChannels);
     nlBallisticsFilter.prepare(sampleRate, numInputChannels);
     nlDET.prepare(sampleRate, numInputChannels);
     

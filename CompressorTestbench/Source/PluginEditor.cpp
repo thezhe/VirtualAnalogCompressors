@@ -24,14 +24,13 @@ CompressorTestbenchAudioProcessorEditor::CompressorTestbenchAudioProcessorEditor
     addAndMakeVisible(inputSectionLabel);
 
     //Input Filter
-    inputFilterComboBox.addItem("None", 1);
-    inputFilterComboBox.addItem("LP1", 2);
-    inputFilterComboBox.addItem("HP1", 3);
+    inputFilterComboBox.addItem("LP1", 1);
+    inputFilterComboBox.addItem("HP1", 2);
     inputFilterComboBox.onChange = [this]
     {
         audioProcessor.dynamicsProcessor.setInputFilterType
         (
-            DynamicsProcessorInputFilterType(inputFilterComboBox.getSelectedId())
+            Multimode1FilterType(inputFilterComboBox.getSelectedId())
         );
     };
     addAndMakeVisible(inputFilterComboBox);
@@ -206,7 +205,7 @@ CompressorTestbenchAudioProcessorEditor::CompressorTestbenchAudioProcessorEditor
     attackLabel.attachToComponent(&attackSlider, true);
     addAndMakeVisible(attackLabel);
 
-    attackAttachment.reset(new SliderAttachment(valueTreeState, "comrpessorAttack", attackSlider));
+    attackAttachment.reset(new SliderAttachment(valueTreeState, "compressorAttack", attackSlider));
 
     //Attack Nonlinearity
     attackNonlinearitySlider.onValueChange = [this]
@@ -339,6 +338,7 @@ CompressorTestbenchAudioProcessorEditor::CompressorTestbenchAudioProcessorEditor
     outputComboBox.addItem("Detector", 1);
     outputComboBox.addItem("Filter", 2);
     outputComboBox.addItem("Transfer Function", 3);
+    outputComboBox.addItem("Normal", 4);
     outputComboBox.onChange = [this]
     {
         audioProcessor.dynamicsProcessor.setOutputType

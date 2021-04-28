@@ -45,7 +45,7 @@ class DynamicsProcessor
 {
 public:
 
-    using FilterType = DynamicsProcessorInputFilterType;
+    using FilterType = Multimode1FilterType;
 
     using SidechainInputType = DynamicsProcessorSidechainInputType;
 
@@ -53,23 +53,23 @@ public:
 
     void setInputFilterType(FilterType type) noexcept
     {
-
+        nlMM1.setFilterType(type);
     }
 
 
     void setInputFilterCutoff(SampleType cutoffHz) noexcept
     {
-
+        nlMM1.setLinearCutoff(cutoffHz);
     }
 
     void setInputFilterFeedbackSaturation(bool feedback) noexcept
     {
-
+        
     }
 
     void setInputFilterSaturation(SampleType nonlinearityN) noexcept
     {
-
+        nlMM1.setNonlinearity(nonlinearityN);
     }
 
     /** Set the sidechain input */
@@ -172,10 +172,9 @@ public:
         SampleType d;
 
         //Detector
-        if (sidechainInputType == SidechainInputType::Feedforward)
-            d = detector.processSample(buffer, channel, frame);
-        else
-            d = detector.processSample(_y, channel);
+        d = (sidechainInputType == SidechainInputType::Feedforward)?
+        detector.processSample(buffer, channel, frame):
+        detector.processSample(_y, channel);
 
         //Detector Gain
         d *= detectorGain;
@@ -189,8 +188,8 @@ public:
 
             tf = MathFunctions<SampleType>::ctf(b, thrLin, exponent);
 
-            //ctf        
-            y = x * tf;
+            //ctf and saturator      
+            y = nlMM1.processSample(x, channel) * tf;
         }
         else
         {
@@ -198,8 +197,8 @@ public:
             b = nlDET.processSample(d, channel);
 
             tf = MathFunctions<SampleType>::ttf(b, thrLin, exponentA, exponentR);
-            //ttf        
-            y = x * tf;
+            //ttf and saturator 
+            y = nlMM1.processSample(x, channel) * tf;
         }
         
 #ifdef DEBUG
@@ -236,7 +235,7 @@ private:
     
     //parameters
     SidechainInputType sidechainInputType = SidechainInputType::Feedforward;
-    std::atomic<SampleType> detectorGain = 1.0;
+    std::atomic<SampleType> detectorGain = SampleType(1.0);
     bool compressor = true;
     std::atomic<SampleType> thrLin = 1.0, exponent = 0.0;
     std::atomic<SampleType> exponentA = SampleType(0.0), exponentR = SampleType(0.0);
@@ -250,6 +249,7 @@ private:
     Detector<SampleType> detector;
 
     //filters
+    NLMM1_Freq<SampleType> nlMM1;
     NLBallisticsFilter<SampleType> nlBallisticsFilter;
     NLDET<SampleType> nlDET;
 

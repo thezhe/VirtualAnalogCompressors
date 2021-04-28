@@ -23,8 +23,6 @@ class LookupTable
 {
 public:
 
-    LookupTable() {}
-
     /** Create a LoopupTable that approximates function f in the range [a, b] using n samples */
     LookupTable(const std::function<FloatType(FloatType)> f, FloatType a, FloatType b, size_t n)
     {
@@ -115,7 +113,7 @@ struct MathFunctions
     }
     
     /** Calculate root of function f using Newton Ralphson with initial guess x0 and n number of iterations */
-    static constexpr FloatType netwonRalphson
+    static constexpr FloatType newtonRalphson
     (
         std::function<FloatType(FloatType)> f, 
         std::function <FloatType(FloatType)> fPrime,

@@ -31,6 +31,7 @@ template<typename SampleType>
 void NLMM1_Time<SampleType>::prepare(SampleType sampleRate, size_t numInputChannels)
 {
     mm1.prepare(sampleRate, numInputChannels);
+    omegaLimit = sampleRate * MathConstants<SampleType>::pi * SampleType(0.499);
 
     _y.resize(numInputChannels);
     std::fill(_y.begin(), _y.end(), SampleType(0.0));
@@ -108,4 +109,44 @@ template class NLDET<double>;
 
 #pragma endregion
 
+
+#pragma region NLMM1_Freq
+
+template<typename SampleType>
+void NLMM1_Freq<SampleType>::setLinearCutoff(SampleType cutoffHz) noexcept
+{
+    auto omegaLin = MathConstants<SampleType>::pi2 * cutoffHz;
+    omegaLinSqrt = sqrt(omegaLin);
+    auto g = omegaLin * T_2;
+    div1plusg = SampleType(1.0) / (SampleType(1.0) + g);
+    G = g / (1 + g);
+}
+
+template<typename SampleType>
+void NLMM1_Freq<SampleType>::setNonlinearity(SampleType nonlinearityN) noexcept
+{
+    N = nonlinearityN;
+}
+
+template<typename SampleType>
+void NLMM1_Freq<SampleType>::reset()
+{
+    std::fill(_s1.begin(), _s1.end(), SampleType(0.0));
+}
+
+template<typename SampleType>
+void NLMM1_Freq<SampleType>::prepare(SampleType sampleRate, size_t numInputChannels)
+{
+    T = SampleType(1.0) / sampleRate;
+    T_2 = T / SampleType(2.0);
+
+    _s1.resize(numInputChannels);
+
+    reset();
+}
+
+template class NLMM1_Freq<float>;
+template class NLMM1_Freq<double>;
+
+#pragma endregion
 

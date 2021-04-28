@@ -32,8 +32,6 @@ template<typename SampleType>
 class NLMM1_Time
 {
 public:
-    
-    NLMM1_Time() {}
 
     /** Set the inductor nonlinearity
     *
@@ -66,6 +64,7 @@ public:
 
         //Modulate Cutoff
         auto sqrtOmega = omegaLinSqrt + nonlinearity * (topologyType == RLTopologyType::Feedforward ? x : y);
+        sqrtOmega = std::min(sqrtOmega, omegaLimit);
         mm1.setOmega(sqrtOmega * sqrtOmega);
 
         //filter
@@ -79,6 +78,7 @@ private:
     RLTopologyType topologyType = RLTopologyType::Feedback;
     RLModelType modelType = RLModelType::Frohlich;
     std::atomic<SampleType> omegaLinSqrt, nonlinearity;
+    SampleType omegaLimit;
 
     //filter
     Multimode1<SampleType> mm1;
@@ -87,12 +87,99 @@ private:
     std::vector<SampleType> _y{ 2 };
 };
 
+/** Nonlinear RL low-pass filter based on modulating cutoff model
+*
+*   Note: Use for frequency domain effects. Implemented using MM1.
+*/
+template<typename SampleType>
+class NLMM1_Freq
+{
+public:
+
+    using FilterType = Multimode1FilterType;
+
+    void setFilterType(FilterType type) noexcept
+    {
+        filterType = type;
+    }
+
+    void setLinearCutoff(SampleType cutoffHz) noexcept;
+
+    /** Set the inductor nonlinearity
+    *
+    *   Note: A good range is [0, 500] with log tapered controls
+    */
+    void setNonlinearity(SampleType nonlinearityN) noexcept;
+
+    /** Set the processing specifications */
+    void prepare(SampleType sampleRate, size_t numInputChannels);
+
+    /** Reset the internal state*/
+    void reset();
+
+    /** Process a sample given the channel */
+    SampleType processSample(SampleType x, size_t channel) noexcept
+    {
+        auto& s = _s1[channel];
+
+        //linear y prediction
+        auto S = s * div1plusg;
+        auto y0 = G * x + S;
+       
+        //nonlinear y prediction
+        auto y = MathFunctions<SampleType>::newtonRalphson
+        (
+            [this, y0, x, s](SampleType y)
+            {
+                auto gSqrt = omegaLinSqrt + N * (y0 > 0 ? y : -y);
+                auto g = T_2 * gSqrt * gSqrt;
+                return y - g * (x - y) - s;
+            },
+            [this, y0, x](SampleType y)
+            {
+                auto gSqrt = omegaLinSqrt + N * (y0 > 0 ? y : -y);
+                return 
+                    y0 > 0 ?
+                    1 - T * N * gSqrt * (x - y) + T_2 * gSqrt * gSqrt :
+                    1 + T * N * gSqrt * (x - y) + T_2 * gSqrt * gSqrt;
+               
+            },
+            y0, 
+            4
+        );
+
+        //calculate v
+        auto gSqrt = omegaLinSqrt + N * y;
+        auto g = T_2 * gSqrt * gSqrt;
+
+        auto v = g * (x - y);
+        
+        //integrate
+        y = v + s;
+        s = y + v;
+        return filterType == Multimode1FilterType::Lowpass ? y : x - y;
+    }
+
+private:
+
+    //parameters
+    RLTopologyType topologyType = RLTopologyType::Feedback;
+    std::atomic<SampleType> omegaLinSqrt, N;
+    SampleType div1plusg, G;
+    FilterType filterType = FilterType::Lowpass;
+
+    //state
+    std::vector<SampleType> _s1{ 2 };
+
+    //spec
+    SampleType T_2{ 0.5 }, T{ 1 };
+};
+
 /** Ballistics filter using implemented using RL_Time */
 template <typename SampleType>
 class NLBallisticsFilter
 {
 public:
-
 
     /** Set the time in miliseconds for the step response to reach 1-1/e */
     void setAttack(SampleType attackMs) noexcept;
@@ -145,8 +232,6 @@ class NLDET
 {
 public:
     
-    NLDET() {}
-
     void setTau(SampleType tauMs) noexcept
     {
         tau = tauMs;
@@ -185,4 +270,5 @@ private:
 };
 
 //TODO RL_Frequency, Hysteresis 
+//TODO FF NLMM1_Freq and Time
 

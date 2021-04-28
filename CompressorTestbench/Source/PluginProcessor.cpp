@@ -37,7 +37,6 @@ parameters
             "Input Filter",
             juce::StringArray
             ({
-                "None",
                 "LP1",
                 "HP1"
             }),
@@ -147,7 +146,7 @@ parameters
         (
             "compressorAttackNonlinearity",
             "Attack Nonlinearity",
-            juce::NormalisableRange<float>(1.f, 250.f),
+            juce::NormalisableRange<float>(0.f, 250.f),
             0.f
         ),
 
@@ -163,7 +162,7 @@ parameters
         (
             "compressorReleaseNonlinearity",
             "Release Nonlinearity",
-            juce::NormalisableRange<float>(1.f, 250.f),
+            juce::NormalisableRange<float>(0.f, 250.f),
             0.f
         ),
 
@@ -195,7 +194,7 @@ parameters
         (
             "transientDesignerNonlinearity",
             "Nonlinearity",
-            juce::NormalisableRange<float>(1.f, 250.f),
+            juce::NormalisableRange<float>(0.f, 250.f),
             0.f
         ),
 

@@ -17,7 +17,7 @@
 
 enum class Multimode1FilterType
 {
-    Lowpass,
+    Lowpass = 1,
     Highpass
 };
 
@@ -28,8 +28,6 @@ class Multimode1
 public:
 
     using FilterType = Multimode1FilterType;
-
-    Multimode1() {}
 
     /** Set mode to lowpass or highpass */
     void setFilterType(FilterType type) noexcept
@@ -45,7 +43,8 @@ public:
     */
     void setOmega(SampleType omega) noexcept
     {
-        G = omegaToG.processSampleMaxChecked(omega);
+        auto g = tan(omega * T_2);
+        G =  g / (SampleType(1.0) + g);
     }
 
     /** Set the filter cutoff frequency in hertz
@@ -99,9 +98,6 @@ public:
 
 private:
 
-    //math function
-    LookupTable<SampleType> omegaToG;
-
     //parameters
     FilterType filterType = FilterType::Lowpass;
     std::atomic<SampleType> G{ SampleType(1.0) };
@@ -124,38 +120,57 @@ class MonoConverter
 {
 public:
 
-    MonoConverter() {}
+    /** Reset the internal state */
+    void reset() noexcept
+    {
+        y = 0;
+    }
 
     /** Prepare the processing specifications */
     void prepare(size_t samplesPerBlock, size_t numInputChannels);
 
     /** Process a frame given a buffer */
-    SampleType processFrame(SampleType** buffer, size_t frame) noexcept
+    SampleType processFrame(SampleType** buffer, size_t channel, size_t frame) noexcept
     {
-        SampleType y;
+        //reuse mono sample
+        if (channel > 0)
+            return y;
+        
+        
+        reset();
 
         //sum channels
         for (size_t ch = 0; ch < numChannels; ++ch)
             y += buffer[ch][frame];
-        return y * divNumChannels;
+        y *= divNumChannels;
+        return y;
     }
 
     /** Process a frame */
-    SampleType processFrame(std::vector <SampleType> frame) noexcept
+    SampleType processFrame(std::vector <SampleType> frame, size_t channel) noexcept
     {
-        SampleType y;
+        //reuse mono sample
+        if (channel > 0)
+            return y;
+
+        
+        reset();
 
         //sum channels
         for (size_t ch = 0; ch < numChannels; ++ch)
             y += frame[ch];
-        return y * divNumChannels;
+        y *= divNumChannels;
+        return y;
     }
 
 private:
 
+    //state
+    SampleType y;
+
     //spec
     size_t numChannels{ 1 };
-    SampleType divNumChannels;
+    SampleType divNumChannels{ 1 };
 };
 
 #pragma endregion
@@ -170,8 +185,6 @@ template <typename SampleType>
 class KFilter
 {
 public:
-
-    KFilter() {}
 
     /** Reset the internal state */
     void reset();
@@ -231,8 +244,6 @@ class Detector
 {
 public:
 
-    Detector() {}
-
     /** Enable or disable stereo linking
     *
     *   Note: Stereo linking sets all detector channels to the average value
@@ -258,13 +269,13 @@ public:
     void reset();
 
     /** Prepare the processing specifications */
-    void prepare(double sampleRate, int samplesPerBlock, size_t numInputChannels);
+    void prepare(SampleType sampleRate, size_t samplesPerBlock, size_t numInputChannels);
 
     /** Process a sample given a buffer, channel, and frame */
     SampleType processSample(SampleType** buffer, size_t channel, size_t frame) noexcept
     {
         //Stereo Link
-        SampleType x = stereoLink ? monoConverter.processFrame(buffer, frame) : buffer[channel][frame];
+        SampleType x = stereoLink ? monoConverter.processFrame(buffer, channel, frame) : buffer[channel][frame];
 
         //Pre-filter and Rectifier
         return processRectifierInternal(processPrefilterInternal(x, channel));
@@ -274,7 +285,7 @@ public:
     SampleType processSample(std::vector <SampleType> frame, size_t channel) noexcept
     {
         //Stereo Link
-        SampleType x = stereoLink ? monoConverter.processFrame(frame) : frame[channel];
+        SampleType x = stereoLink ? monoConverter.processFrame(frame, channel) : frame[channel];
 
         //Pre-filter and Rectifier
         return processRectifierInternal(processPrefilterInternal(x, channel));
@@ -290,7 +301,7 @@ private:
         {
         case DetectorPreFilterType::None:
             return x;
-        default:
+        default: //DetectorPreFilterType::KWeighting:
             return kFilter.processSample(x, channel);
             break;
         }
@@ -304,10 +315,10 @@ private:
             return abs(x);
             break;
         case DetectorRectifierType::HalfWaveRect:
-            return x > 0.0 ? x * x : 0.0;
+            return (exp(x)-1)/(exp(1)-1);
             break;
         default: //DetectorRectifierType::FullWaveRect:
-            return x * x;
+            return x > 0 ? (exp(x) - 1) / (exp(1) - 1): (exp(-x) - 1) / (exp(1) - 1);
             break;
         }
     }
