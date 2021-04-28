@@ -1,6 +1,6 @@
 /*
   ==============================================================================
-    Dynamic processors.
+    A Dynamic Processor composed of a Transient Designer and Compressor.
     
     Zhe Deng 2020
     thezhefromcenterville@gmail.com
@@ -14,7 +14,25 @@
 
 #include "NonlinearFilters.h"
 
-enum class CompressorSidechainType
+#ifdef DEBUG
+enum class DynamicsProcessorOutputType
+{
+    Detector = 1,
+    Filter,
+    TransferFunction,
+    Normal
+};
+#endif
+
+enum class DynamicsProcessorInputFilterType
+{
+    None = 1,
+    LP1,
+    HP1
+};
+
+
+enum class DynamicsProcessorSidechainInputType
 {
     Feedforward = 1,
     Feedback,
@@ -23,218 +41,227 @@ enum class CompressorSidechainType
 
 /** Dynamic range compressor */
 template <typename SampleType>
-class Compressor: public Processor<SampleType>
+class DynamicsProcessor
 {
 public:
 
-    using SidechainType = CompressorSidechainType;
+    using FilterType = DynamicsProcessorInputFilterType;
 
-    void setSidechainType(SidechainType sidechainType) noexcept
+    using SidechainInputType = DynamicsProcessorSidechainInputType;
+
+    DynamicsProcessor() {}
+
+    void setInputFilterType(FilterType type) noexcept
     {
-        sidechain = sidechainType;
+
     }
 
-    void setThreshold(SampleType thrdB) noexcept;
 
-    void setRatio(SampleType ratioR) noexcept;
+    void setInputFilterCutoff(SampleType cutoffHz) noexcept
+    {
 
-    /** Set the input gain in dB */
-    void setInputGain(SampleType inputdB) noexcept;
+    }
 
-    /** Set the gain of the processed signal in dB*/
-    void setWetGain(SampleType wetdB) noexcept;
+    void setInputFilterFeedbackSaturation(bool feedback) noexcept
+    {
 
-    /** Set the gain of the unprocessed signal in dB */
-    void setDryGain(SampleType drydB) noexcept;
+    }
 
-    /** Enable or disable stereo linking
+    void setInputFilterSaturation(SampleType nonlinearityN) noexcept
+    {
+
+    }
+
+    /** Set the sidechain input */
+    void setSidechainInputType(SidechainInputType type) noexcept
+    {
+        sidechainInputType = type;
+    }
+
+    /** Enable or disable stereo linking in the detector output
     *
     *   Note: Stereo linking applies the same processing to all channels
     */
-    void setStereoLink(bool enableStereoLink) noexcept
+    void setStereoLink(bool linkEnable) noexcept;
+
+    /** Set the detector's pre-filter type */
+    void setPreFilterType(DetectorPreFilterType type) noexcept;
+
+    /** Set the detector's rectifier type */
+    void setRectifierType(DetectorRectifierType type) noexcept;
+
+    /** Set the gain of the detector output in decibels */
+    void setDetectorGain(SampleType dB) noexcept;
+
+    /** Set the threshold in decibels */
+    void setThreshold(SampleType thrdB) noexcept;
+
+    /** Set the effect as Compressor (and Expander) or Transient Designer */
+    void setCompressor(bool enable) noexcept
     {
-        detector.setStereoLink(enableStereoLink);
+        compressor = enable;
     }
 
-    void setDetectorMode(DetectorType mode) noexcept
-    {
-        detector.setMode(mode);
-    }
+#pragma region Compressor Only
 
-    void setAttack(SampleType attackMs) noexcept;
+    /** Set the attack time in miliseconds */
+    void setCompressorAttack(SampleType attackMs) noexcept;
+
+    /** Set the nonlinearity of the ballistics filter during attacks */
+    void setCompressorAttackNonlinearity(SampleType nonlinearityN) noexcept;
+
+    /** Set the release time in miliseconds*/
+    void setCompressorRelease(SampleType releaseMs) noexcept;
+
+    /** Set the nonlinearity of the ballistics filter during releases */
+    void setCompressorReleaseNonlinearity(SampleType nonlinearityN) noexcept;
     
-    void setRelease(SampleType releaseMs) noexcept;
+    /** Set the ratio */
+    void setCompressorRatio(SampleType ratioR) noexcept;
 
-    void setRL(bool enableRL) noexcept 
-    { 
-        RL = enableRL; 
-    }
+#pragma endregion
 
-    void setRMS(bool RMSenable)
+#pragma region Transient Designer Only
+
+    /** Set the DET tau in miliseconds */
+    void setTransientDesignerTau(SampleType tauMs) noexcept;
+
+    /** Set the DET sensitivity */
+    void setTransientDesignerSensitivity(SampleType sensS) noexcept;
+
+    /** Set the DET nonlinearity */
+    void setTransientDesignerNonlinearity(SampleType nonlinearityN) noexcept;
+
+    /** Set the DET attack ratio */
+    void setTransientDesignerAttackRatio(SampleType ratioR) noexcept;
+
+    /** Set the DET release ratio */
+    void setTransientDesignerReleaseRatio(SampleType ratioR) noexcept;
+
+#pragma endregion
+
+    /** Set the gain of the processed signal in decibels */
+    void setWetGain(SampleType wetdB) noexcept;
+
+    /** Set the gain of the unprocessed signal in decibels */
+    void setDryGain(SampleType drydB) noexcept;
+
+
+#ifdef DEBUG
+    /** Ouput the signal in the selected node of the sidechain 
+    *
+    *   Note: Debug only
+    */
+    void setOutputType(DynamicsProcessorOutputType output) noexcept
     {
-        ballisticsFilter.setRMS(RMSenable);
+        outputType = output;
     }
+#endif
 
-    void setLinearTauRL(SampleType linearTauMs) noexcept;
+    /** Reset the internal state */
+    void reset();
 
-    void setSaturationRL(SampleType saturationConstant) noexcept;
-
-    void prepare(double sampleRate, int samplesPerBlock, int numInputChannels);
+    /** Prepare the processing specifications */
+    void prepare(SampleType sampleRate, size_t samplesPerBlock, size_t numInputChannels);
     
-    void reset()
+    /** Process a sample given a buffer, channel, and frame */
+    SampleType processSample(SampleType** buffer, size_t channel, size_t frame) noexcept
     {
-        detector.reset();
-        ballisticsFilter.reset();
-        frohlichRL.reset();
-    }
+        auto& y = _y[channel];
+        auto x = buffer[channel][frame];
+        SampleType d;
 
-    SIMD processSample(SIMD x) noexcept
-    {
-        //detector and ballistics filter
-        b = ballisticsFilter.processSample(
-            inLin*detector.processSample(
-            sidechain==SidechainType::Feedforward ?
-            x :
-            y
-            )
-        );
-        //RL
-        if (RL) b = frohlichRL.processSample(b);
-        //ctf        
-        y = x * ctf(b);
-        //mix
-        return (dryLin * x) + (wetLin * y);
-    }
+        //Detector
+        if (sidechainInputType == SidechainInputType::Feedforward)
+            d = detector.processSample(buffer, channel, frame);
+        else
+            d = detector.processSample(_y, channel);
 
-    void process(SampleType* interleaved) noexcept
-    {
-        for (size_t i = 0; i < interleavedSize; i += SIMD::size)
+        //Detector Gain
+        d *= detectorGain;
+
+        SampleType b, tf;
+        //Smoothing and Mapping to Vc
+        if (compressor)
         {
-            SIMD x = xsimd::load_aligned(&interleaved[i]);
-            xsimd::store_aligned(&interleaved[i], processSample(x));
+            //Ballistics Filter
+            b = nlBallisticsFilter.processSample(d, channel);
+
+            tf = MathFunctions<SampleType>::ctf(b, thrLin, exponent);
+
+            //ctf        
+            y = x * tf;
         }
+        else
+        {
+            //DET
+            b = nlDET.processSample(d, channel);
+
+            tf = MathFunctions<SampleType>::ttf(b, thrLin, exponentA, exponentR);
+            //ttf        
+            y = x * tf;
+        }
+        
+#ifdef DEBUG
+        switch (outputType)
+        {
+        case DynamicsProcessorOutputType::Detector:
+            return d;
+            break;
+        case DynamicsProcessorOutputType::Filter:
+            return b;
+            break;
+        case DynamicsProcessorOutputType::TransferFunction:
+            return tf;
+            break;
+        default: //DynamicsProcessorOutputType::Normal:
+            return dryLin * x + wetLin * y;
+            break;
+        }
+#endif
+
+        //mix
+        return dryLin * x + wetLin * y;
+    }
+
+    /** Process a buffer */
+    void process(SampleType** buffer) noexcept
+    {
+        for (size_t i = 0; i < blockSize; ++i)
+            for (size_t ch = 0; ch < numChannels; ++ch)
+                buffer[ch][i] = processSample(buffer, ch, i);
     }
 
 private:
     
-    //helper functions
-    SIMD ctf(SIMD x) noexcept 
-    { 
-        return xsimd::select(x > thrlin, xsimd::pow(x / thrlin, exponent), SIMD(1.0)); 
-    }
-    
     //parameters
-    SIMD thrlin = SIMD(1.0), exponent = SIMD(0.0);
-    SIMD inLin = SIMD(1.0), dryLin, wetLin = SIMD(1.0);
-    SidechainType sidechain = SidechainType::Feedforward;
-    bool RL = false;
-    
-    //filters
-    Detector<SampleType> detector;
-    BallisticsFilter<SampleType> ballisticsFilter;
-    RL_Modulating_Riemann<SampleType> frohlichRL;
+    SidechainInputType sidechainInputType = SidechainInputType::Feedforward;
+    std::atomic<SampleType> detectorGain = 1.0;
+    bool compressor = true;
+    std::atomic<SampleType> thrLin = 1.0, exponent = 0.0;
+    std::atomic<SampleType> exponentA = SampleType(0.0), exponentR = SampleType(0.0);
+    std::atomic<SampleType> dryLin, wetLin = 1.0;
 
-    //output
-    SIMD b, y;   
+#ifdef DEBUG
+    DynamicsProcessorOutputType outputType;
+#endif
+
+    //detector
+    Detector<SampleType> detector;
+
+    //filters
+    NLBallisticsFilter<SampleType> nlBallisticsFilter;
+    NLDET<SampleType> nlDET;
+
+    //state
+    std::vector<SampleType> _y{ 2 };   
 
     //spec
-    size_t interleavedSize = 2;
+    size_t blockSize, numChannels;
 };
-
-enum class TransientDesignerSidechainType
-{
-    Feedforward = 1,
-    Feedback
-};
-
-///** Transient Designer */
-//template <typename SampleType>
-//class TransientDesigner : public Processor<SampleType>
-//{
-//public:
-//
-//    using SidechainType = CompressorSidechainType;
-//    
-//    /** Set the input gain in dB */
-//    void setInputGain(SampleType inputdB) noexcept;
-//
-//    /** Set the gain of the processed signal in dB*/
-//    void setWetGain(SampleType wetdB) noexcept;
-//
-//    /** Set the gain of the unprocessed signal in dB */
-//    void setDryGain(SampleType drydB) noexcept;
-//
-//    /** Enable or disable stereo linking
-//    *
-//    *   Note: Stereo linking applies the same processing to all channels
-//    */
-//    void setStereoLink(bool enableStereoLink) noexcept
-//    {
-//        det.setStereoLink(enableSteroLink);
-//    }
-//
-//    void setAttack(SampleType attackMs) noexcept;
-//
-//    void setRelease(SampleType releaseMs) noexcept;
-//
-//
-//    void setRL(bool enableRL) noexcept
-//    {
-//        RL = enableRL;
-//    }
-//
-//    void setLinearTauRL(SampleType linearTauMs) noexcept;
-//
-//    void setSaturationRL(SampleType saturationConstant) noexcept;
-//
-//    void prepare(double sampleRate, int samplesPerBlock, int numInputChannels);
-//
-//    void reset()
-//    {
-//        det.reset();
-//    }
-//
-//    SIMD processSample(SIMD x) noexcept
-//    {
-//        //ballistics filter
-//        b = det.processSample(x);
-//        //ctf        
-//        y = x * ttf(b);
-//        //mix
-//        return (dryLin * x) + (wetLin * y);
-//    }
-//
-//private:
-//
-//    //helper functions
-//    SIMD ttf(SIMD x) noexcept 
-//    { 
-//        return xsimd::select(
-//            x > SIMD(0.0), 
-//            SIMD(1.0) + ctf(x * attackGain), 
-//            SIMD(1.0) + releaseGain
-//        ); 
-//    }
-//
-//    //parameters
-//    SIMD inLin = SIMD(1.0), dryLin, wetLin = SIMD(1.0);
-//    SIMD attackGain, releaseGain;
-//
-//    SidechainType sidechain = SidechainType::Feedforward;
-//    bool RL = false;
-//
-//    //filters
-//    DET<SampleType> det;
-//
-//    //output
-//    SIMD b, y;
-//};
 
 //TODO sidechain support
 //TODO expansion (upwards and downwards) and compression (upwards and downwards)
 //TODO soft knee
-//TODO second order DET for better noise floor?
-//TODO input gain
-//TODO ttf define or use ctf with thresh at 0
 //TODO waveshaping transfer functions
-//TODO nonlinearityRL normalize to [0,1]
+//TODO nonlinearityN normalize to [0,1]

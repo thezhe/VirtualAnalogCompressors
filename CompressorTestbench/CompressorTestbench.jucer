@@ -2,18 +2,18 @@
 
 <JUCERPROJECT id="kLFAAs" name="CompressorTestbench" projectType="audioplug"
               useAppConfig="0" addUsingNamespaceToJuceHeader="0" displaySplashScreen="1"
-              jucerFormatVersion="1" pluginFormats="buildAU,buildVST3" headerPath="C:\Users\tigr2\Documents\Libraries">
+              jucerFormatVersion="1" pluginFormats="buildAU,buildVST3" headerPath="C:\Users\tigr2\Documents\Libraries"
+              defines="_ITERATOR_DEBUG_LEVEL=0" cppLanguageStandard="14">
   <MAINGROUP id="ZzvBcj" name="CompressorTestbench">
     <GROUP id="{02A2FA68-6A95-ED69-DBA0-A9567568F2A5}" name="Source">
-      <GROUP id="{CA73B312-3010-38C2-AEBA-76F495C51FBE}" name="SharedCode">
-        <FILE id="Ca7SyM" name="Filters.h" compile="0" resource="0" file="Source/Filters.h"/>
-        <FILE id="pvCCV3" name="Filters.cpp" compile="1" resource="0" file="Source/Filters.cpp"/>
-        <FILE id="YRGfK9" name="NonlinearFilters.h" compile="0" resource="0"
-              file="Source/NonlinearFilters.h"/>
-        <FILE id="U8fsTA" name="NonlinearFilters.cpp" compile="1" resource="0"
-              file="Source/NonlinearFilters.cpp"/>
-        <FILE id="qy94B3" name="Utility.h" compile="0" resource="0" file="Source/Utility.h"/>
-      </GROUP>
+      <FILE id="S8KYzW" name="Core.h" compile="0" resource="0" file="Source/Core.h"/>
+      <FILE id="C3l3cU" name="Core.cpp" compile="1" resource="0" file="Source/Core.cpp"/>
+      <FILE id="Ca7SyM" name="Filters.h" compile="0" resource="0" file="Source/Filters.h"/>
+      <FILE id="pvCCV3" name="Filters.cpp" compile="1" resource="0" file="Source/Filters.cpp"/>
+      <FILE id="YRGfK9" name="NonlinearFilters.h" compile="0" resource="0"
+            file="Source/NonlinearFilters.h"/>
+      <FILE id="U8fsTA" name="NonlinearFilters.cpp" compile="1" resource="0"
+            file="Source/NonlinearFilters.cpp"/>
       <FILE id="DG27RP" name="DebugTools.h" compile="0" resource="0" file="Source/DebugTools.h"/>
       <FILE id="PfnVOM" name="Dynamics.h" compile="0" resource="0" file="Source/Dynamics.h"/>
       <FILE id="ibIGOs" name="Dynamics.cpp" compile="1" resource="0" file="Source/Dynamics.cpp"/>

@@ -10,106 +10,142 @@
 
 #include "Dynamics.h"
 
-#pragma region Compressor
+#pragma region DynamicsProcessor
 
 template<typename SampleType>
-void Compressor<SampleType>::setThreshold(SampleType thrdB) noexcept 
+inline void DynamicsProcessor<SampleType>::setStereoLink(bool linkEnable) noexcept
+{
+    detector.setStereoLink(linkEnable);
+}
+
+template<typename SampleType>
+void DynamicsProcessor<SampleType>::setPreFilterType(DetectorPreFilterType type) noexcept
+{
+    detector.setPreFilterType(type);
+}
+
+template<typename SampleType>
+void DynamicsProcessor<SampleType>::setRectifierType(DetectorRectifierType type) noexcept
+{
+    detector.setRectifierType(type);
+}
+
+template<typename SampleType>
+void DynamicsProcessor<SampleType>::setDetectorGain(SampleType gaindB) noexcept
+{
+    detectorGain = Decibels::decibelsToGain(gaindB);
+}
+
+template<typename SampleType>
+void DynamicsProcessor<SampleType>::setThreshold(SampleType thrdB) noexcept
+{
+    thrLin = Decibels::decibelsToGain(thrdB);
+}
+
+template<typename SampleType>
+void DynamicsProcessor<SampleType>::setCompressorAttack(SampleType attackMs) noexcept
+{
+    nlBallisticsFilter.setAttack(attackMs);
+}
+
+template<typename SampleType>
+void DynamicsProcessor<SampleType>::setCompressorAttackNonlinearity(SampleType nonlinearityN) noexcept
+{
+    nlBallisticsFilter.setAttackNonlinearity(nonlinearityN);
+}
+
+template<typename SampleType>
+void DynamicsProcessor<SampleType>::setCompressorRelease(SampleType releaseMs) noexcept
+{
+    nlBallisticsFilter.setRelease(releaseMs);
+}
+
+template<typename SampleType>
+void DynamicsProcessor<SampleType>::setCompressorReleaseNonlinearity(SampleType nonlinearityN) noexcept
+{
+    nlBallisticsFilter.setReleaseNonlinearity(nonlinearityN);
+}
+
+template<typename SampleType>
+void DynamicsProcessor<SampleType>::setCompressorRatio(SampleType ratioR) noexcept 
 { 
-    thrlin = SIMD(Decibels::decibelsToGain(thrdB)); 
+    exponent = SampleType(1.0) / ratioR - SampleType(1.0); 
 }
 
 template<typename SampleType>
-void Compressor<SampleType>::setRatio(SampleType ratioR) noexcept 
+void DynamicsProcessor<SampleType>::setTransientDesignerTau(SampleType tauMs) noexcept
+{
+    nlDET.setTau(tauMs);
+}
+
+template<typename SampleType>
+void DynamicsProcessor<SampleType>::setTransientDesignerSensitivity(SampleType sensS) noexcept
+{
+    nlDET.setSensitivity(sensS);
+}
+
+template<typename SampleType>
+void DynamicsProcessor<SampleType>::setTransientDesignerNonlinearity(SampleType nonlinearityN) noexcept
+{
+    nlDET.setNonlinearity(nonlinearityN);
+}
+
+template<typename SampleType>
+void DynamicsProcessor<SampleType>::setTransientDesignerAttackRatio(SampleType ratioR) noexcept
+{
+    exponentA = MathFunctions<SampleType>::ratioToExponent(ratioR);
+}
+
+template<typename SampleType>
+void DynamicsProcessor<SampleType>::setTransientDesignerReleaseRatio(SampleType ratioR) noexcept
+{
+    exponentR = MathFunctions<SampleType>::ratioToExponent(ratioR);
+}
+
+template<typename SampleType>
+void DynamicsProcessor<SampleType>::setWetGain(SampleType wetdB) noexcept 
 { 
-    exponent = SIMD((1.0 / ratioR) - 1.0); 
+    wetLin = Decibels::decibelsToGain(wetdB); 
 }
 
 template<typename SampleType>
-void Compressor<SampleType>::setInputGain(SampleType inputdB) noexcept
-{
-    inLin = SIMD(Decibels::decibelsToGain(inputdB));
-}
-
-template<typename SampleType>
-void Compressor<SampleType>::setWetGain(SampleType wetdB) noexcept 
+void DynamicsProcessor<SampleType>::setDryGain(SampleType drydB) noexcept 
 { 
-    wetLin = SIMD(Decibels::decibelsToGain(wetdB)); 
+    dryLin = Decibels::decibelsToGain(drydB); 
 }
 
 template<typename SampleType>
-void Compressor<SampleType>::setDryGain(SampleType drydB) noexcept 
-{ 
-    dryLin = SIMD(Decibels::decibelsToGain(drydB)); 
-}
-
-template<typename SampleType>
-void Compressor<SampleType>::setAttack(SampleType attackMs) noexcept
+void DynamicsProcessor<SampleType>::reset()
 {
-    ballisticsFilter.setAttack(attackMs);
+    //filters
+    detector.reset();
+    nlBallisticsFilter.reset();
+    nlDET.reset();
+
+    //state
+    std::fill(_y.begin(), _y.end(), SampleType(0.0));
 }
 
 template<typename SampleType>
-void Compressor<SampleType>::setRelease(SampleType releaseMs) noexcept
+void DynamicsProcessor<SampleType>::prepare(SampleType sampleRate, size_t samplesPerBlock, size_t numInputChannels)
 {
-    ballisticsFilter.setRelease(releaseMs);
-}
-
-template<typename SampleType>
-void Compressor<SampleType>::setLinearTauRL(SampleType linearTauMs) noexcept
-{
-    frohlichRL.setLinearTau(linearTauMs);
-}
-
-template<typename SampleType>
-void Compressor<SampleType>::setSaturationRL(SampleType saturationConstant) noexcept
-{
-    frohlichRL.setSaturation(saturationConstant);
-}
-
-template<typename SampleType>
-void Compressor<SampleType>::prepare(double sampleRate, int samplesPerBlock, int numInputChannels)
-{
-    interleavedSize = SIMD::size * samplesPerBlock;
-
+    //detector
     detector.prepare(sampleRate, samplesPerBlock, numInputChannels);
-    ballisticsFilter.prepare(sampleRate, samplesPerBlock, numInputChannels);
-    frohlichRL.prepare(sampleRate, samplesPerBlock, numInputChannels);
+
+    //filters
+    nlBallisticsFilter.prepare(sampleRate, numInputChannels);
+    nlDET.prepare(sampleRate, numInputChannels);
+    
+    //state
+    _y.resize(numInputChannels);
+    std::fill(_y.begin(), _y.end(), SampleType(0.0));
+
+    //spec
+    blockSize = samplesPerBlock;
+    numChannels = numInputChannels;
 }
 
-template class Compressor<float>;
-template class Compressor<double>;
+template class DynamicsProcessor<float>;
+template class DynamicsProcessor<double>;
 
 #pragma endregion
-
-//#pragma region Transient Designer
-//
-//template<typename SampleType>
-//void TransientDesigner<SampleType>::setInputGain(SampleType inputdB) noexcept
-//{
-//    inLin = SIMD(Decibels::decibelsToGain(inputdB));
-//}
-//
-//template<typename SampleType>
-//void TransientDesigner<SampleType>::setWetGain(SampleType wetdB) noexcept
-//{
-//    wetLin = SIMD(Decibels::decibelsToGain(wetdB));
-//}
-//
-//template<typename SampleType>
-//void TransientDesigner<SampleType>::setDryGain(SampleType drydB) noexcept
-//{
-//    dryLin = SIMD(Decibels::decibelsToGain(drydB));
-//}
-//
-//template<typename SampleType>
-//void TransientDesigner<SampleType>::prepare(double sampleRate, int samplesPerBlock, int numInputChannels)
-//{
-//    Processor<SampleType>::prepare(double sampleRate, int samplesPerBlock, int numInputChannels);
-//
-//    det.prepare(sampleRate, samplesPerBlock, numInputChannels);
-//}
-//
-//template class TransientDesigner<float>;
-//template class TransientDesigner<double>;
-//
-//#pragma endregion

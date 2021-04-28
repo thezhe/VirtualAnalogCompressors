@@ -12,109 +12,177 @@
 
 #include "Filters.h"
 
-#pragma region Inductors
+enum class RLModelType
+{
+    Frohlich = 1,
+    JilesAtherton
+};
+
+enum class RLTopologyType
+{
+    Feedforward  = 1,
+    Feedback
+};
 
 /** Nonlinear RL low-pass filter based on modulating cutoff model
 *
-*   Note: Use for time domain effects. Implementation is based on
-*   left Riemann sum integrator and unit delay feedback resolution.
+*   Note: Use for time domain effects. Implemented using MM1.
 */
 template<typename SampleType>
-class RL_Modulating_Riemann : public Processor<SampleType>
+class NLMM1_Time
 {
 public:
     
-    /** Set the inductor saturation
+    NLMM1_Time() {}
+
+    /** Set the inductor nonlinearity
     *
     *   Note: A good range is [0, 500] with log tapered controls
     */
-    void setSaturation(SampleType saturationConstant) noexcept;
+    void setNonlinearity(SampleType nonlinearityN) noexcept;
 
-    /** Set the time in miliseconds for the step response to reach 1-1/e when inductor saturation is 0 */
+    /** Set the time in miliseconds for the step response to reach 1-1/e when nonlinearity is 0 */
     void setLinearTau(SampleType linearTauMs) noexcept;
 
+    void setSqrtLinearOmega(SampleType sqrtLinearOmega) noexcept
+    {
+        omegaLinSqrt = sqrtLinearOmega;
+    }
+
     /** Set the processing specifications */
-    void prepare(double sampleRate, int samplesPerBlock, int numInputChannels);
+    void prepare(SampleType sampleRate, size_t numInputChannels);
 
     /** Reset the internal state*/
     void reset() 
     {
-        LP1.reset();
+        mm1.reset();
+        std::fill(_y.begin(), _y.end(), SampleType(0.0));
     }
 
-    /** Process a single SIMD sample */
-    SIMD processSample(SIMD x) noexcept
+    /** Process a sample given the channel */
+    SampleType processSample(SampleType x, size_t channel) noexcept
     {
-        LP1.setOmega(xsimd::min(xsimd::pow(wLinSq + sat*xsimd::abs(y), SIMD(2.0)), omegaLimit));
-        y = LP1.processSample(x);
+        auto& y = _y[channel];
+
+        //Modulate Cutoff
+        auto sqrtOmega = omegaLinSqrt + nonlinearity * (topologyType == RLTopologyType::Feedforward ? x : y);
+        mm1.setOmega(sqrtOmega * sqrtOmega);
+
+        //filter
+        y = mm1.processSample(x, channel);
         return y;
     }
 
 private:
 
-    //spec
-    SIMD omegaLimit;
-
     //parameters
-    SIMD wLinSq, sat;
-
-    //output
-    SIMD y;
+    RLTopologyType topologyType = RLTopologyType::Feedback;
+    RLModelType modelType = RLModelType::Frohlich;
+    std::atomic<SampleType> omegaLinSqrt, nonlinearity;
 
     //filter
-    LP1_Riemann<SampleType> LP1;
+    Multimode1<SampleType> mm1;
+
+    //output
+    std::vector<SampleType> _y{ 2 };
 };
 
-/*
-template<typename SampleType>
-class RL_Modulating_TPTz
+/** Ballistics filter using implemented using RL_Time */
+template <typename SampleType>
+class NLBallisticsFilter
 {
 public:
 
-    using SIMD = xsimd::simd_type<SampleType>;
 
-   
-    void prepare(const double sampleRate, const int samplesPerBlock);
+    /** Set the time in miliseconds for the step response to reach 1-1/e */
+    void setAttack(SampleType attackMs) noexcept;
 
+    /** Set the inductor nonlinearity during attacks */
+    void setAttackNonlinearity(SampleType nonlinearityN) noexcept;
 
-    void setLinearCutoff(SampleType linearCutoffHz) noexcept;
+    /** Set the time in miliseconds for inversed step response to reach 1/e */
+    void setRelease(SampleType releaseMs) noexcept;
 
+    /** Set the inductor nonlinearity during releases */
+    void setReleaseNonlinearity(SampleType nonlinearityN) noexcept;
 
-    void setSaturation(SampleType saturationConstant) noexcept;
+    /** Prepare the processing specifications */
+    void prepare(SampleType sampleRate, size_t numInputChannels);
 
-
-    void setMode(FilterType mode) { mm1_TPT.setMode(mode); }
-
+    /** Reset the internal state */
     void reset();
 
-    SIMD processSample(SIMD x)
+    /** Process a sample in the specified channel */
+    SampleType processSample(SampleType x, size_t channel) noexcept
     {
-        //update omega
-        SIMD temp = a + sat * xsimd::abs(y);
-        mm1_TPT.setOmega(xsimd::min(g * temp * temp, omegaLimit));
+        auto& y = _y[channel];
+
+        //branching
+        nlMM1.setSqrtLinearOmega(x < y ? rOmegaLinSqrt : aOmegaLinSqrt);
+        nlMM1.setNonlinearity(x < y ? rNonlinearity : aNonlinearity);
+
         //filter
-        y = mm1_TPT.processSample(x);
+        y = nlMM1.processSample(x, channel);
         return y;
     }
+
 private:
 
     //parameters
-    SIMD g = SIMD(1.0), a, sat;
-    SIMD linearCutoffRad;
-
-    //spec
-    SIMD omegaLimit;
-
-    //state
-    SIMD y;
+    std::atomic<SampleType> aOmegaLinSqrt = SampleType(1.0), aNonlinearity = SampleType(0.0);
+    std::atomic<SampleType> rOmegaLinSqrt = SampleType(1.0), rNonlinearity = SampleType(0.0);
 
     //filter
-    Multimode1_TPT<SampleType> mm1_TPT;
+    NLMM1_Time<SampleType> nlMM1;
 
+    //state
+    std::vector<SampleType> _y{ 2 };
 };
-*/
 
-#pragma endregion
+/** Differential Envelope Technology using NLMM1_Time */
+template <typename SampleType>
+class NLDET
+{
+public:
+    
+    NLDET() {}
 
-//TODO RL models Cutoff Mod TPT, Jiles
+    void setTau(SampleType tauMs) noexcept
+    {
+        tau = tauMs;
+        envFast.setLinearTau(tauMs);
+    }
+
+    void setSensitivity(SampleType sensS) noexcept
+    {
+        envSlow.setLinearTau((SampleType(1.0) + sensS) * tau);
+    }
+
+    void setNonlinearity(SampleType nonlinearityN) noexcept
+    {
+        envFast.setNonlinearity(nonlinearityN);
+    }
+
+    /** Reset the internal state */
+    void reset();
+
+    /** Set the processing specifications */
+    void prepare(SampleType sampleRate, size_t numInputChannels);
+
+    /** Process a sample */
+    SampleType processSample(SampleType x, size_t channel) noexcept
+    {
+        return envFast.processSample(x, channel) - envSlow.processSample(x, channel);
+    }
+
+private:
+
+    //parameters
+    SampleType tau;
+
+    //filters
+    NLMM1_Time<SampleType> envFast, envSlow;
+};
+
+//TODO RL_Frequency, Hysteresis 
 

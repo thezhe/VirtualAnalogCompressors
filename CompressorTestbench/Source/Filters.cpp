@@ -10,120 +10,90 @@
 
 #include "Filters.h"
 
-#pragma region LP1_Riemann
+#pragma region Multimode1
 
 template<typename SampleType>
-xsimd::simd_type<SampleType> LP1_Riemann<SampleType>::tauToG(SampleType tauMs) noexcept
+void Multimode1<SampleType>::setCutoff(SampleType cutoffHz) noexcept
 {
-    return SIMD(1.0 - exp(mT1000 / tauMs)); //1-e^(1 / (sampleRate * tau)) = 1-e^(T*1000/tauMs) 
+    setOmega(MathConstants<SampleType>::pi2 * cutoffHz);
 }
 
 template<typename SampleType>
-void LP1_Riemann<SampleType>::setTau(SampleType tauMs) noexcept
+void Multimode1<SampleType>::setTau(SampleType tauMs) noexcept
 {
-    setG(tauToG(tauMs));
+    setOmega(SampleType(1000.0) / tauMs);
 }
 
 template<typename SampleType>
-void LP1_Riemann<SampleType>::prepare(double sampleRate, int samplesPerBlock, int numInputChannels)
+SampleType Multimode1<SampleType>::tauToG(SampleType tauMs) noexcept
 {
+    SampleType g = tan(T_2 * SampleType(1000.0) / tauMs);
+    return g / (SampleType(1.0) + g);
+}
+
+template<typename SampleType>
+void Multimode1<SampleType>::reset()
+{
+    std::fill(_s1.begin(), _s1.end(), SampleType(0.0));
+}
+
+template<typename SampleType>
+void Multimode1<SampleType>::prepare(SampleType sampleRate, size_t numInputChannels)
+{
+    T_2 = SampleType(0.5) / sampleRate;
+
+    omegaToG.prepare
+    (
+        [this](SampleType x)
+        {
+            auto g = tan(x * T_2);
+            return g / (SampleType(1.0) + g);
+        },
+        0,
+        MathConstants<SampleType>::pi * SampleType(0.499) * sampleRate, //limit omega
+        512
+    );
+
+    _s1.resize(numInputChannels);
+
     reset();
-
-    mT = -1.0 / sampleRate;
-    mT1000 = -1000.0 / sampleRate;
 }
 
 // "How can I avoid linker errors with my template classes?" 
 //https://isocpp.org/wiki/faq/templates#separate-template-fn-defn-from-decl
-template class LP1_Riemann <float>;
-template class LP1_Riemann <double>;
+template class Multimode1 <float>;
+template class Multimode1 <double>;
 
 #pragma endregion
 
-//#pragma region DET
-//
-//template<typename SampleType>
-//void DET<SampleType>::prepare(const double sampleRate, const int samplesPerBlock, const int numInputChannels)
-//{
-//
-//}
-//
-//template class DET<float>;
-//template class DET<double>;
-//
-//#pragma endregion
+#pragma region MonoConverter
 
-#pragma region BallisticsFilter
-
-template<typename SampleType>
-void BallisticsFilter<SampleType>::prepare(double sampleRate, int samplesPerBlock, int numInputChannels)
+template <typename SampleType>
+void MonoConverter<SampleType>::prepare(size_t samplesPerBlock, size_t numInputChannels)
 {
-    LP1.prepare(sampleRate, samplesPerBlock, numInputChannels);
+    numChannels = numInputChannels;
+    divNumChannels = SampleType(1.0) / SampleType(numInputChannels);
 }
 
-template<typename SampleType>
-void BallisticsFilter<SampleType>::setAttack(SampleType attackMs) noexcept
-{
-    Ga = LP1.tauToG(attackMs);
-}
-
-template<typename SampleType>
-void BallisticsFilter<SampleType>::setRelease(SampleType releaseMs) noexcept
-{
-    Gr = LP1.tauToG(releaseMs);
-}
-
-template class BallisticsFilter<float>;
-template class BallisticsFilter<double>;
-
-#pragma endregion
-
-#pragma region Multimode1_TPT
-
-template<typename SampleType>
-void Multimode1_TPT<SampleType>::prepare(double sampleRate, int samplesPerBlock, int numInputChannels)
-{
-    reset();
-
-    Tpi = MathConstants<SampleType>::pi / sampleRate;
-    T_2 = SIMD(0.5 / sampleRate);
-}
-
-template<typename SampleType>
-void Multimode1_TPT<SampleType>::setCutoff(SampleType cutoffHz) noexcept
-{
-    SampleType g = tan(Tpi * cutoffHz);
-    G = SIMD(g / (1.0 + g));
-}
-
-template class Multimode1_TPT <float>;
-template class Multimode1_TPT <double>;
-
-#pragma endregion
-
-
-#pragma region Detector
-
-template<typename SampleType>
-void Detector<SampleType>::prepare(double sampleRate, int samplesPerBlock, int numInputChannels)
-{
-    kFilter.prepare(sampleRate, samplesPerBlock, numInputChannels);
-    numChannels = SIMD(numInputChannels);
-}
-
-template class Detector<float>;
-template class Detector<double>;
+template class MonoConverter<float>;
+template class MonoConverter<double>;
 
 #pragma endregion
 
 #pragma region KFilter
 
 template<typename SampleType>
-void KFilter<SampleType>::prepare(double sampleRate, int samplesPerBlock, int numInputChannels)
+void KFilter<SampleType>::reset()
 {
-    //reset state
-    reset();
+    std::fill(_x1.begin(), _x1.end(), 0.0);
+    std::fill(_x2.begin(), _x2.end(), 0.0);
+    std::fill(_y1.begin(), _y1.end(), 0.0);
+    std::fill(_y2.begin(), _y2.end(), 0.0);
+}
 
+template<typename SampleType>
+void KFilter<SampleType>::prepare(SampleType sampleRate, size_t numInputChannels)
+{
     //Parameters
     SampleType Vh = 1.58, Vb = 1.26, Vl = 1;
     SampleType Q = 0.71;
@@ -134,19 +104,27 @@ void KFilter<SampleType>::prepare(double sampleRate, int samplesPerBlock, int nu
     SampleType gSq = g * g;
 
     //Calculate Coefficients
-    a1 = SIMD(2 * (gSq - 1));
-    a2 = SIMD(gSq - g / Q + 1);
-    b0 = SIMD(Vl * gSq + Vb * g / Q + Vh);
-    b1 = SIMD(2 * (Vl * gSq - Vh));
-    b2 = SIMD(Vl * gSq - Vb * g / Q + Vh);
+    a1 = 2 * (gSq - 1);
+    a2 = gSq - g / Q + 1;
+    b0 = Vl * gSq + Vb * g / Q + Vh;
+    b1 = 2 * (Vl * gSq - Vh);
+    b2 = Vl * gSq - Vb * g / Q + Vh;
 
     //Normalize to a0
-    SIMD a0 = SIMD(gSq + g / Q + 1);
+    SampleType a0 = gSq + g / Q + 1;
     a1 /= a0;
     a2 /= a0;
     b0 /= a0;
     b1 /= a0;
     b2 /= a0;
+
+    //allocate state
+    _x1.resize(numInputChannels);
+    _x2.resize(numInputChannels);
+    _y1.resize(numInputChannels);
+    _y2.resize(numInputChannels);
+
+    reset();
 }
 
 template class KFilter<float>;
@@ -154,51 +132,22 @@ template class KFilter<double>;
 
 #pragma endregion
 
+#pragma region Detector
 
+template<typename SampleType>
+void Detector<SampleType>::reset()
+{
+    kFilter.reset();
+}
 
+template<typename SampleType>
+void Detector<SampleType>::prepare(double sampleRate, int samplesPerBlock, size_t numInputChannels)
+{
+    monoConverter.prepare(samplesPerBlock, numInputChannels);
+    kFilter.prepare(sampleRate, numInputChannels);
+}
 
-//#pragma region DelayLine
-//
-//template<typename SampleType>
-//void DelayLine<SampleType>::prepare(double sampleRate, int samplesPerBlock, double maxDelayMs)
-//{
-//    maxDelaySamples = (1.0 + (maxDelayMs / 1000.0)) * 4.0 * sampleRate;
-//    cBuf.reset(new SampleType[maxDelaySamples]);
-//    reset();
-//}
-//
-//template<typename SampleType>
-//void DelayLine<SampleType>::setDelay(size_t delaySamples) noexcept
-//{
-//    readPos = (writePos + maxDelaySamples - SIMD::size * delaySamples) % maxDelaySamples;
-//}
-//
-//template class DelayLine<float>;
-//template class DelayLine<double>;
-//
-//#pragma endregion
-//
-//#pragma region RMSDetector
-//
-//template<typename SampleType>
-//void RMSDetector<SampleType>::prepare(double sampleRate, int samplesPerBlock, double maxDelayMs)
-//{
-//    delayLine.prepare(sampleRate, samplesPerBlock, maxDelayMs);
-//    sRate = sampleRate;
-//}
-//
-//template<typename SampleType>
-//void RMSDetector<SampleType>::setWindowSize(double windowSizeMs) noexcept
-//{
-//    size_t delaySamples = (windowSizeMs / 1000.0) * sRate;
-//    delayLine.setDelay(delaySamples);
-//    sumSquares = SIMD(0.0);
-//    windowSamples = SIMD(delaySamples);
-//    windowSize = delaySamples;
-//}
-//
-//template class RMSDetector<float>;
-//template class RMSDetector<double>;
-//
-//#pragma endregion
+template class Detector<float>;
+template class Detector<double>;
 
+#pragma endregion

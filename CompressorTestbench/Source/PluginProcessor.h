@@ -14,7 +14,7 @@
 #include "Dynamics.h"
 
 #ifdef DEBUG
-#include "DebugTools.h"
+//#include "DebugTools.h"
 #endif
 
 
@@ -61,35 +61,20 @@ public:
     void getStateInformation (juce::MemoryBlock& destData) override;
     void setStateInformation (const void* data, int sizeInBytes) override;
 
-
     //==============================================================================
     //Non JUCE Code Below
     //==============================================================================
-    
-    using SIMD = xsimd::simd_type<float>;
-
-    //Performance Profiling
-#ifdef DEBUG
-    FunctionTimer functionTimer;
-#endif
 
     //Processors
-    Compressor<float> compressor;
+    DynamicsProcessor<float> dynamicsProcessor;
 
 private:
 
     //parameters
     juce::AudioProcessorValueTreeState parameters;
 
-    //SIMD optimization          
-    juce::dsp::AudioBlock<float> interleaved, zero;
-    juce::HeapBlock<char> interleavedBlockData, zeroData;              
-    juce::HeapBlock<const float*> channelPointers{ SIMD::size };
-
     //==============================================================================
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(CompressorTestbenchAudioProcessor)
 };
 
 //TODO double support
-//TODO SIMD with audiobuffers?
-//TODO load/saveable parameters

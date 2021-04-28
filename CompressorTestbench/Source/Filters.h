@@ -1,6 +1,6 @@
 /*
   ==============================================================================
-    Linear filters and their wrappers.
+    Linear, piecewise linear, and approximately linear filters.
     
     Zhe Deng 2021
     thezhefromcenterville@gmail.com
@@ -11,17 +11,51 @@
 */
 
 #pragma once
-#include "Utility.h"
+#include "Core.h"
 
-/** First-order Riemann integrator low-pass
-*
-*   Note: Use for time domain effects. Implementation is based on 
-*   left Riemann sum integrator and unit delay feedback resolution.
-*/
-template<typename SampleType>
-class LP1_Riemann final : public Processor<SampleType>
+#pragma region Multimode1
+
+enum class Multimode1FilterType
+{
+    Lowpass,
+    Highpass
+};
+
+/** First-order Topology Preserving Transform multimode filter */
+template <typename SampleType>
+class Multimode1
 {
 public:
+
+    using FilterType = Multimode1FilterType;
+
+    Multimode1() {}
+
+    /** Set mode to lowpass or highpass */
+    void setFilterType(FilterType type) noexcept
+    {
+        filterType = type;
+    }
+
+    /** Set the angular cutoff frequency
+    *
+    *   Note 1: This function is for programmatically modulating cutoff at audio rates.
+    *
+    *   Note 2: Do not use negative omega values.
+    */
+    void setOmega(SampleType omega) noexcept
+    {
+        G = omegaToG.processSampleMaxChecked(omega);
+    }
+
+    /** Set the filter cutoff frequency in hertz
+    *
+    *   Note: This method doesn't perform checks. Make sure cutoff is below Nyquist before calling.
+    */
+    void setCutoff(SampleType cutoffHz) noexcept;
+
+    /** Set the time in miliseconds for the step response to reach 1-1/e */
+    void setTau(SampleType tauMs) noexcept;
 
     /** Convert tau in miliseconds to G
     *
@@ -29,7 +63,7 @@ public:
     *
     *   Note 2: This method doesn't perform checks. Make sure cutoff is below Nyquist before calling.
     */
-    xsimd::simd_type<SampleType> tauToG(SampleType tauMs) noexcept;
+    SampleType tauToG(SampleType tauMs) noexcept;
 
     /** Set the internal integrator input gain
     *
@@ -37,269 +71,126 @@ public:
     *
     *   Note 2: This method doesn't perform checks. Make sure cutoff is below Nyquist before calling.
     */
-    void setG(SIMD newG) noexcept 
-    { 
-        G = newG; 
-    }
-
-    /** Set the time in miliseconds for the step response to reach 1-1/e */
-    void setTau(SampleType tauMs) noexcept;
-
-    /** Set the angular cutoff frequency
-    * 
-    *   Note 1: This function is for programmatically modulating cutoff at audio rates. 
-    * 
-    *   Note 2: This method doesn't perform checks. Make sure cutoff is below Nyquist before calling.
-    */
-    void setOmega(SIMD omega) noexcept
+    void setG(SampleType newG) noexcept
     {
-        G = SIMD(1.0) - xsimd::exp(mT*omega);
-    }
-
-    /** Set the filter to operate in RMS mode */
-    void setRMS(bool RMSenable)
-    {
-        RMS = RMSenable;
-    }
-    
-    /** Set the processing specifications */
-    void prepare(double sampleRate, int samplesPerBlock, int numInputChannels);
-
-    /** Reset the internal state */
-    void reset()
-    {
-        y = SIMD(0.0);
-    }
-
-    /** Process a SIMD sample */
-    SIMD processSample(SIMD x) noexcept
-    {
-        if (RMS)
-        {
-            SIMD ySq = y * y;
-            y = xsimd::sqrt(xsimd::fma(G, (x*x - ySq), ySq)); //y = sqrt(G * (x^2 - y^2) + y^2)
-        }
-        else
-        {
-            y = xsimd::fma(G, (x - y), y); //y = G * (x - y) + y
-        }
-        return y;
-    }
-
-private:
-
-    //outputs
-    SIMD y;
-
-    //parameter
-    SIMD G;
-    bool RMS = false;
-
-    //spec
-    SampleType mT, mT1000;
-};
-
-/** Differential Envelope Technology using Envelope */
-//template <typename SampleType>
-//class DET : public ProcessorWrapper<SampleType>
-//{
-//public:
-//
-//    /** Enable or disable stereo linking
-//    *
-//    *   Note: Stereo linking sets all detector channels to the average value
-//    */
-//    void setStereoLink(bool enableStereoLink)
-//    {
-//        stereoLink = enableStereoLink;
-//    }
-//
-//    /** Set the processing specifications */
-//    void prepare(const double sampleRate, const int samplesPerBlock, const int numInputChannels);
-//
-//    /** Reset the internal state */
-//    void reset()
-//    {
-//        LP1.reset();
-//    }
-//
-//    /** Process a SIMD sample */
-//    SIMD processSample(SIMD x) noexcept
-//    {
-//        //detector
-//        detector = xsimd::abs(x);
-//        //stereo link
-//        if (stereoLink) detector = xsimd::hadd(detector) / SIMD(numChannels);
-//        //filter
-//        return envFast.processSample(detector) - envSlow.processSample(detector);
-//    }
-//
-//private:
-//
-//    //filters
-//    LP1_Riemann<SampleType> envFast, envSlow;
-//
-//    //parameters
-//    bool stereoLink = false;
-//
-//    //outputs
-//    SIMD detector, transients;
-//
-//};
-
-/** Ballistics filter using LP1_Riemann */
-template <typename SampleType>
-class BallisticsFilter final : public Processor<SampleType>
-{
-public:
-
-    /** Set the time in miliseconds for the step response to reach 1-1/e */
-    void setAttack(SampleType attackMs) noexcept;
-
-    /** Set the time in miliseconds for inversed step response to reach 1/e */
-    void setRelease(SampleType releaseMs) noexcept;
-
-    /** Set the processing specifications */
-    void prepare(double sampleRate, int samplesPerBlock, int numInputChannels);
-
-    void setRMS(bool RMSenable)
-    {
-        LP1.setRMS(RMSenable);
+        G = newG;
     }
 
     /** Reset the internal state */
-    void reset()
-    {
-        LP1.reset();
-    }
+    void reset();
 
-    /** Process a SIMD sample
-    *
-    *   Note: Unused channels must be zeroed for stereo link to function
-    */
-    SIMD processSample(SIMD x) noexcept
+    /** Prepare the processing specifications */
+    void prepare(SampleType sampleRate, size_t numInputChannels);
+
+    /** Process a sample given a channel */
+    SampleType processSample(SampleType x, size_t channel) noexcept
     {
-        //branching cutoff
-        LP1.setG(xsimd::select(x < y, Gr, Ga)); // rect < y ? Ga : Gr 
+        auto& s = _s1[channel];
+
         //filter
-        y = LP1.processSample(x);
-        return y;
+        auto v = (x - s) * G;
+        auto y = v + s;
+        s = y + v;
+
+        //filter type
+        return filterType == FilterType::Lowpass ? y : x - y;
     }
 
+
 private:
+
+    //math function
+    LookupTable<SampleType> omegaToG;
 
     //parameters
-    SIMD Gr = SIMD(0.5), Ga = SIMD(0.5);
-    bool RMS = false;
+    FilterType filterType = FilterType::Lowpass;
+    std::atomic<SampleType> G{ SampleType(1.0) };
 
-    //filter
-    LP1_Riemann<SampleType> LP1;
+    //state
+    std::vector<SampleType> _s1{ 2 };
+    
+    //spec
+    SampleType T_2{ 0.5 };
 
-    //outputs
-    SIMD y;
 };
 
-enum class Multimode1FilterType
-{
-    lowpass,
-    highpass
-};
+#pragma endregion
 
-/** First-order Topology Preserving Transform multimode filter
-*   
-*   Note: Use for frequency domain effects. Implementation is based on
-*   trapezoidal integration and zero-delay feedback.
-*/
-template <typename SampleType>
-class Multimode1_TPT final : public Processor<SampleType>
+#pragma region MonoConverter
+
+/** Multi-channel to mono converter */
+template<typename SampleType>
+class MonoConverter
 {
 public:
 
-    using FilterType = Multimode1FilterType;
+    MonoConverter() {}
 
-    /** Set mode to lowpass or highpass */
-    void setMode(FilterType mode) noexcept { filterType = mode; }
+    /** Prepare the processing specifications */
+    void prepare(size_t samplesPerBlock, size_t numInputChannels);
 
-    /** Set the filter cutoff frequency in hertz 
-    *
-    *   Note: This method doesn't perform checks. Make sure cutoff is below Nyquist before calling.
-    */
-    void setCutoff(SampleType cutoffHz) noexcept;
-
-    /** Set the angular cutoff frequency
-    *
-    *   Note 1: This function is for programmatically modulating cutoff at audio rates.
-    *
-    *   Note 2: This method doesn't perform checks. Make sure cutoff is below Nyquist before calling.
-    */
-    void setOmega(SIMD omega) noexcept
+    /** Process a frame given a buffer */
+    SampleType processFrame(SampleType** buffer, size_t frame) noexcept
     {
-        SIMD g = xsimd::tan(omega * T_2);
-        G = g / (SIMD(1.0) + g);
-    }
-    
+        SampleType y;
 
-    /** Set the processing specifications */
-    void prepare(double sampleRate, int samplesPerBlock, int numInputChannels);
-
-    /** Reset the internal state */
-    void reset()
-    {
-        s = SIMD(0.0);
+        //sum channels
+        for (size_t ch = 0; ch < numChannels; ++ch)
+            y += buffer[ch][frame];
+        return y * divNumChannels;
     }
 
-    /** Process a SIMD sample */
-    SIMD processSample(SIMD x) noexcept
+    /** Process a frame */
+    SampleType processFrame(std::vector <SampleType> frame) noexcept
     {
-        //filter
-        SIMD v = (x - s) * G;
-        y = v + s;
-        s = y + v;
-        //choose mode
-        return (filterType == FilterType::lowpass) ? y : x - y;
+        SampleType y;
+
+        //sum channels
+        for (size_t ch = 0; ch < numChannels; ++ch)
+            y += frame[ch];
+        return y * divNumChannels;
     }
 
 private:
 
-    //parameter
-    SIMD G;
-    FilterType filterType = FilterType::lowpass;
-
-    //state
-    SIMD s;
-
-    //outputs
-    SIMD y;
-
     //spec
-    SampleType Tpi;
-    SIMD T_2;
-
+    size_t numChannels{ 1 };
+    SampleType divNumChannels;
 };
 
-/** K Weighting for abritrary sample rates
-*   
+#pragma endregion
+
+#pragma region KFilter
+
+/** K-weighting filter for abritrary sample rates
+*
 *   https://www.eecs.qmul.ac.uk/~josh/documents/2012/MansbridgeFinnReiss-AES1322012-AutoMultitrackFaders.pdf
 */
 template <typename SampleType>
-class KFilter final: Processor<SampleType>
+class KFilter
 {
 public:
-    void prepare(double sampleRate, int samplesPerBlock, int numInputChannels);
 
-    void reset()
-    {
-        x1 = SIMD(0.0);
-        x2 = SIMD(0.0);
-        y1 = SIMD(0.0);
-        y2 = SIMD(0.0);
-    }
+    KFilter() {}
 
-    SIMD processSample(SIMD x) noexcept
+    /** Reset the internal state */
+    void reset();
+
+    /** Prepare the processing specifications */
+    void prepare(SampleType sampleRate, size_t numInputChannels);
+
+    /** Process a sample in the specified channel */
+    SampleType processSample(SampleType x, size_t channel) noexcept
     {
+        auto& x1 = _x1[channel];
+        auto& x2 = _x2[channel];
+        auto& y1 = _y1[channel];
+        auto& y2 = _y2[channel];
+
         //filter
-        y = b0 * x + b1 * x1 + b2 * x1 - a1 * y1 - a2 * y2;
-        
+        //auto y = b0 * x + b1 * x1 + b2 * x2 - a1 * y1 - a2 * y2;
+        auto y = std::fma(b0, x, std::fma(b1, x1, std::fma(b2, x2, std::fma(-a1, y1, -a2 * y2))));
+
         //update state
         x2 = x1;
         x1 = x;
@@ -308,30 +199,39 @@ public:
 
         return y;
     }
+
 private:
 
     //filter coefficients
-    SIMD b0, b1, b2, a1, a2;
+    SampleType b0, b1, b2, a1, a2;
 
     //state
-    SIMD x1, x2, y1, y2;
-
-    //output 
-    SIMD y;
+    std::vector<SampleType> _x1{ 2 }, _x2{ 2 }, _y1{ 2 }, _y2{ 2 };
 };
 
-enum class DetectorType
+#pragma endregion
+
+#pragma region Detector
+
+enum class DetectorPreFilterType
+{
+    None = 1,
+    KWeighting
+};
+
+enum class DetectorRectifierType
 {
     Peak = 1,
     HalfWaveRect,
-    FullWaveRect,
-    KWeight
+    FullWaveRect
 };
 
 template<typename SampleType>
-class Detector final : Processor<SampleType>
+class Detector
 {
 public:
+
+    Detector() {}
 
     /** Enable or disable stereo linking
     *
@@ -342,161 +242,87 @@ public:
         stereoLink = stereoLinkEnable;
     }
 
-    void setMode(DetectorType mode)
+    /** Set the pre-filter type */
+    void setPreFilterType(DetectorPreFilterType type)
     {
-        detectorType = mode;
+        preFilterType = type;
     }
 
-    void prepare(double sampleRate, int samplesPerBlock, int numInputChannels);
-
-    void reset()
+    /** Set the rectifier type */
+    void setRectifierType(DetectorRectifierType type)
     {
-        kFilter.reset();
+        rectifierType = type;
     }
 
-    SIMD processSample(SIMD x) noexcept
+    /** Reset the internal state */
+    void reset();
+
+    /** Prepare the processing specifications */
+    void prepare(double sampleRate, int samplesPerBlock, size_t numInputChannels);
+
+    /** Process a sample given a buffer, channel, and frame */
+    SampleType processSample(SampleType** buffer, size_t channel, size_t frame) noexcept
     {
-        //detector type
-        switch (detectorType)
-        {
-        case DetectorType::Peak:
-            y = xsimd::abs(x);
-            break;
-        case DetectorType::HalfWaveRect:
-            y = xsimd::select(x > SIMD(0.0), x * x, SIMD(0.0));
-            break;
-        case DetectorType::FullWaveRect:
-            y = x * x;
-            break;
-        default: //DetectorType::KWeight
-            y = kFilter.processSample(xsimd::abs(x));
-            break;
-        }
-        //stereo link
-         return stereoLink ? xsimd::hadd(y) / numChannels : y;
+        //Stereo Link
+        SampleType x = stereoLink ? monoConverter.processFrame(buffer, frame) : buffer[channel][frame];
+
+        //Pre-filter and Rectifier
+        return processRectifierInternal(processPrefilterInternal(x, channel));
+    }
+
+    /** Process a sample given a frame and channel */
+    SampleType processSample(std::vector <SampleType> frame, size_t channel) noexcept
+    {
+        //Stereo Link
+        SampleType x = stereoLink ? monoConverter.processFrame(frame) : frame[channel];
+
+        //Pre-filter and Rectifier
+        return processRectifierInternal(processPrefilterInternal(x, channel));
     }
 
 private:
 
+    //helper functions
+    SampleType processPrefilterInternal(SampleType x, size_t channel)
+    {
+        //Detector
+        switch (preFilterType)
+        {
+        case DetectorPreFilterType::None:
+            return x;
+        default:
+            return kFilter.processSample(x, channel);
+            break;
+        }
+    }
+
+    SampleType processRectifierInternal(SampleType x)
+    {
+        switch (rectifierType)
+        {
+        case DetectorRectifierType::Peak:
+            return abs(x);
+            break;
+        case DetectorRectifierType::HalfWaveRect:
+            return x > 0.0 ? x * x : 0.0;
+            break;
+        default: //DetectorRectifierType::FullWaveRect:
+            return x * x;
+            break;
+        }
+    }
+
     //parameters
-    DetectorType detectorType = DetectorType::Peak;
+    DetectorPreFilterType preFilterType = DetectorPreFilterType::None;
+    DetectorRectifierType rectifierType = DetectorRectifierType::Peak;
     bool stereoLink = false;
 
     //filter
+    MonoConverter<SampleType> monoConverter;
     KFilter<SampleType> kFilter;
-
-    //output
-    SIMD y;
-
-    //spec
-    SIMD numChannels;
 };
 
-///** Delay line implementing constant integer sample delay */
-//template<typename SampleType>
-//class DelayLine final: Processor<SampleType>
-//{
-//public:
-//
-//    /** Prepare the processing specifications */
-//    void prepare(double sampleRate, int samplesPerBlock, double maxDelayMs);
-//
-//    /** Reset the internal state*/
-//    void reset()
-//    {
-//        for (int i = 0; i < maxDelaySamples; ++i)
-//            cBuf[i] = 0.0;
-//    }
-//    
-//    /** Set the delay in samples */
-//    void setDelay(size_t delaySamples) noexcept;
-//
-//    /** Write the current sample */
-//    void write(SIMD x) noexcept
-//    {
-//        if (writePos+=4 >= maxDelaySamples) 
-//            writePos = 0;
-//        xsimd::store_aligned(&cBuf[writePos], x);
-//    }
-//
-//    /** Read the delayed sample */
-//    SIMD read() noexcept
-//    {
-//        if ((readPos+=4) >= maxDelaySamples) 
-//            readPos = 0;
-//        return xsimd::load_aligned(&cBuf[readPos]);
-//    }
-//
-//private:
-//    
-//    //spec
-//    size_t maxDelaySamples;
-//
-//    //state
-//    size_t writePos, readPos;
-//
-//    //circular buffer
-//    std::unique_ptr<SampleType[]> cBuf;
-//};
-//
-//template<typename SampleType>
-//class RMSDetector final: public Processor<SampleType>
-//{
-//public:
-//
-//    /** Prepare the processing specifications */
-//    void prepare(double sampleRate, int samplesPerBlock, double maxDelayMs);
-//
-//    /** Reset the internal state*/
-//    void reset()
-//    {
-//        delayLine.reset();
-//    }
-//
-//    /** Set the approximate delay in miliseconds
-//    *
-//    *   Note 1: Delay time is not exact. Time is rounded
-//    *   and may update during write or read.
-//    *
-//    *   Note 2: Updating delay resets the internal state.
-//    */
-//    void setWindowSize(double windowSizeMs) noexcept;
-//
-//    SIMD processSample(SIMD x) noexcept
-//    {
-//        //single sample window is the same as peak detector
-//        if (windowSize == 0) 
-//            return xsimd::abs(x);
-//        //update sum of squares
-//        delayLine.write(x*x);
-//        sumSquares += x*x;
-//        sumSquares -= delayLine.read();
-//        //root of mean
-//        return xsimd::sqrt(sumSquares / windowSamples);
-//    }
-//
-//private:
-//
-//    //parameters
-//    SIMD windowSamples;
-//    size_t windowSize;
-//
-//    //state
-//    SIMD sumSquares;
-//   
-//    //DelayLine
-//    DelayLine<SampleType> delayLine;
-//
-//    //spec
-//    SampleType sRate;
-//};
+#pragma endregion
 
-
-
-//TODO SIMD mask MM1 branch
-//TODO FMA
-//TODO MM1_Riemann omegaToG lookuptable
-//TODO rms, lufs detector or any other metrics
-//TODO delay line optimization https://abhinavag.medium.com/a-fast-circular-ring-buffer-4d102ef4d4a3
-//TODO LUFS delay at least 0.3 sec
+//TODO LUTs and LUT sample count optimization
 //TODO detector shockley equation

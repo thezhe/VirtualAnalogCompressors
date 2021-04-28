@@ -29,8 +29,44 @@ parameters
 (
     *this, 
     nullptr, 
-    juce::Identifier("CompressorTestBench"),
+    juce::Identifier("Dynamcis"),
     {
+        std::make_unique<juce::AudioParameterChoice>
+        (
+            "inputFilterType",
+            "Input Filter",
+            juce::StringArray
+            ({
+                "None",
+                "LP1",
+                "HP1"
+            }),
+            0
+        ),
+
+        std::make_unique<juce::AudioParameterFloat>
+        (
+            "inputFilterCutoff",
+            "Cutoff",
+            juce::NormalisableRange<float>(0.f, 10000.f),
+            100.f
+        ),
+
+        std::make_unique<juce::AudioParameterBool>
+        (
+            "inputFilterFeedbackSaturation",
+            "Feedback Saturation",
+            false
+        ),
+
+        std::make_unique<juce::AudioParameterFloat>
+        (
+            "inputFilterSaturation",
+            "Saturation",
+            juce::NormalisableRange<float>(0.f, 500.f),
+            0.f
+        ),
+
         std::make_unique<juce::AudioParameterChoice>
         (
             "sidechainInput",
@@ -38,30 +74,8 @@ parameters
             juce::StringArray
             ({
                 "Feedforward",
-                "Feedback",
-                "Sidechain"
-            }),
-            0
-        ),
-    
-        std::make_unique<juce::AudioParameterFloat>
-        (
-            "sidechainInputGain",
-            "Sidechain Input Gain",
-            juce::NormalisableRange<float>(-6.f, 24.f),
-            0.f
-        ),
-
-        std::make_unique<juce::AudioParameterChoice>
-        (
-            "detector",
-            "Detector",
-            juce::StringArray
-            ({
-                "Peak",
-                "Half Wave Rectifier",
-                "Full Wave Rectifier",
-                "LUFS"
+                "Feedback"//,
+                //"Sidechain"
             }),
             0
         ),
@@ -73,6 +87,39 @@ parameters
             true
         ),
 
+        std::make_unique<juce::AudioParameterChoice>
+        (
+            "preFilterType",
+            "Pre-filter",
+            juce::StringArray
+            ({
+                "None",
+                "K-Weighting"
+            }),
+            0
+        ),
+
+        std::make_unique<juce::AudioParameterChoice>
+        (
+            "rectifierType",
+            "Rectifier",
+            juce::StringArray
+            ({
+                "Peak",
+                "Half Wave",
+                "Full Wave"
+            }),
+            0
+        ),
+
+        std::make_unique<juce::AudioParameterFloat>
+        (
+            "detectorGain",
+            "Detector Gain",
+            juce::NormalisableRange<float>(-6.f, 24.f),
+            0.f
+        ),
+
         std::make_unique<juce::AudioParameterFloat>
         (
             "threshold",
@@ -80,10 +127,49 @@ parameters
             juce::NormalisableRange<float>(-60.f, 0.f),
             -40.f
         ),
+
+        std::make_unique<juce::AudioParameterBool>
+        (
+            "compressor",
+            "Compressor",
+            true
+        ),
+
+        std::make_unique<juce::AudioParameterFloat>
+        (
+            "compressorAttack",
+            "Attack",
+            juce::NormalisableRange<float>(1.f, 100.f),
+            5.f
+        ),
         
         std::make_unique<juce::AudioParameterFloat>
         (
-            "ratio",
+            "compressorAttackNonlinearity",
+            "Attack Nonlinearity",
+            juce::NormalisableRange<float>(1.f, 250.f),
+            0.f
+        ),
+
+        std::make_unique<juce::AudioParameterFloat>
+        (
+            "compressorRelease",
+            "Release",
+            juce::NormalisableRange<float>(1.f, 250.f),
+            50.f
+        ),
+
+        std::make_unique<juce::AudioParameterFloat>
+        (
+            "compressorReleaseNonlinearity",
+            "Release Nonlinearity",
+            juce::NormalisableRange<float>(1.f, 250.f),
+            0.f
+        ),
+
+        std::make_unique<juce::AudioParameterFloat>
+        (
+            "compressorRatio",
             "Ratio",
             juce::NormalisableRange<float>(1.f, 50.f),
             50.f
@@ -91,48 +177,42 @@ parameters
 
         std::make_unique<juce::AudioParameterFloat>
         (
-            "attack",
-            "Attack",
-            juce::NormalisableRange<float>(1.f, 100.f),
-            5.f
+            "transientDesignerTau",
+            "Tau",
+            juce::NormalisableRange<float>(1.f, 50.f),
+            10.f
         ),
 
         std::make_unique<juce::AudioParameterFloat>
         (
-            "release",
-            "Release",
-            juce::NormalisableRange<float>(1.f, 250.f),
-            50.f
-        ),
-
-        std::make_unique<juce::AudioParameterBool>
-        (
-            "RMS",
-            "RMS",
-            false
-        ),
-
-        std::make_unique<juce::AudioParameterBool>
-        (
-            "RL",
-            "RL",
-            false
-        ),
-
-        std::make_unique<juce::AudioParameterFloat>
-        (
-            "linearTauRL",
-            "RL Linear Tau",
-            juce::NormalisableRange<float>(1.f, 100.f),
+            "transientDesignerSensitivity",
+            "Sensitivity",
+            juce::NormalisableRange<float>(0.f, 2.f),
             1.f
         ),
 
         std::make_unique<juce::AudioParameterFloat>
         (
-            "nonlinearityRL",
-            "RL nonlinearity",
-            juce::NormalisableRange<float>(0.f, 1.f),
+            "transientDesignerNonlinearity",
+            "Nonlinearity",
+            juce::NormalisableRange<float>(1.f, 250.f),
             0.f
+        ),
+
+        std::make_unique<juce::AudioParameterFloat>
+        (
+            "transientDesignerAttackRatio",
+            "Attack Ratio",
+            juce::NormalisableRange<float>(0.25f, 20.f),
+            1.f
+        ),
+        
+        std::make_unique<juce::AudioParameterFloat>
+        (
+            "transientDesignerReleaseRatio",
+            "Release Ratio",
+            juce::NormalisableRange<float>(0.25f, 20.f),
+            1.f
         ),
 
         std::make_unique<juce::AudioParameterFloat>
@@ -225,22 +305,16 @@ void CompressorTestbenchAudioProcessor::changeProgramName (int index, const juce
 void CompressorTestbenchAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
 #ifdef DEBUG
-    functionTimer.prepare(1000);
-#endif 
-
+    // SystemSpecs::isAtomicLockFree();
+#endif
 
     //prepare processors
-    compressor.prepare(sampleRate, samplesPerBlock, 2);
-
-    //prepare SIMD
-    interleaved = juce::dsp::AudioBlock<float>(interleavedBlockData, 1, samplesPerBlock*SIMD::size);
-    zero = juce::dsp::AudioBlock<float>(zeroData, SIMD::size, samplesPerBlock);
-    zero.clear();
+    dynamicsProcessor.prepare(sampleRate, samplesPerBlock, getTotalNumInputChannels());
 }
 
 void CompressorTestbenchAudioProcessor::releaseResources()
 {
-    compressor.reset();
+    dynamicsProcessor.reset();
 }
 
 #ifndef JucePlugin_PreferredChannelConfigurations
@@ -271,10 +345,6 @@ bool CompressorTestbenchAudioProcessor::isBusesLayoutSupported (const BusesLayou
 
 void CompressorTestbenchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages)
 {
-#ifdef DEBUG
-    functionTimer.start();
-#endif
-
     //disable denormals via hardware flag
     juce::ScopedNoDenormals noDenormals;
     auto totalNumInputChannels  = getTotalNumInputChannels();
@@ -284,36 +354,8 @@ void CompressorTestbenchAudioProcessor::processBlock (juce::AudioBuffer<float>& 
     for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
         buffer.clear(i, 0, buffer.getNumSamples());
 
-    //get channel pointers
-    auto* inout = channelPointers.getData();
-    for (size_t ch = 0; ch < juce::dsp::SIMDRegister<float>::size(); ++ch)
-        inout[ch] = ch < totalNumInputChannels ? 
-        buffer.getReadPointer(ch) :
-        zero.getChannelPointer(ch);
-    
-    //interleave channel data
-    juce::AudioDataConverters::interleaveSamples(
-        inout,
-        interleaved.getChannelPointer(0),
-        buffer.getNumSamples(),
-        SIMD::size
-    );
-
     //process
-    compressor.process(interleaved.getChannelPointer(0));
-    
-    //deinterleave
-    juce::AudioDataConverters::deinterleaveSamples(
-        interleaved.getChannelPointer(0),
-        const_cast<float**>(inout),
-        buffer.getNumSamples(),
-        SIMD::size
-        );
-
-#ifdef DEBUG
-    functionTimer.stop();
-#endif
-
+    dynamicsProcessor.process(buffer.getArrayOfWritePointers());
 }
 
 //==============================================================================

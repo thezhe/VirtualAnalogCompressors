@@ -13,71 +13,99 @@
 
 #include "NonlinearFilters.h"
 
+#pragma region NLMM1_Time
+
 template<typename SampleType>
-void RL_Modulating_Riemann<SampleType>::setSaturation(SampleType saturationConstant) noexcept
+void NLMM1_Time<SampleType>::setNonlinearity(SampleType nonlinearityN) noexcept
 {
-    sat = SIMD(saturationConstant);
+    nonlinearity = nonlinearityN;
 }
 
 template<typename SampleType>
-void RL_Modulating_Riemann<SampleType>::setLinearTau(SampleType linearTauMs) noexcept
+void NLMM1_Time<SampleType>::setLinearTau(SampleType linearTauMs) noexcept
 {
-    wLinSq = SIMD(sqrt(1000.0 / linearTauMs));
+    omegaLinSqrt = sqrt(SampleType(1000.0) / linearTauMs);
 }
 
 template<typename SampleType>
-void RL_Modulating_Riemann<SampleType>::prepare(double sampleRate, int samplesPerBlock, int numInputChannels)
+void NLMM1_Time<SampleType>::prepare(SampleType sampleRate, size_t numInputChannels)
 {
-    omegaLimit = SIMD(MathConstants<SampleType>::twoPi * 0.45 * sampleRate);
-    LP1.prepare(sampleRate, samplesPerBlock, numInputChannels);
+    mm1.prepare(sampleRate, numInputChannels);
+
+    _y.resize(numInputChannels);
+    std::fill(_y.begin(), _y.end(), SampleType(0.0));
 }
 
-template class RL_Modulating_Riemann<float>;
-template class RL_Modulating_Riemann<double>;
+template class NLMM1_Time<float>;
+template class NLMM1_Time<double>;
 
-/*
-template<typename SampleType>
-void RL_Modulating_TPTz<SampleType>::prepare(const double sampleRate, const int samplesPerBlock)
-{
-    omegaLimit = SIMD(MathConstants<SampleType>::twoPi * sampleRate * 0.45); //limit omega to slightly below Nyquist
-    y = SIMD(0.0);
-    mm1_TPT.prepare(sampleRate, samplesPerBlock);
-}
+#pragma endregion
+
+#pragma region NLBallisticsFilter
 
 template<typename SampleType>
-void RL_Modulating_TPTz<SampleType>::setLinearAttack(SampleType attackMs) noexcept
+void NLBallisticsFilter<SampleType>::setAttack(SampleType attackMs) noexcept
 {
-    linearCutoffRad = SIMD(1000.0 / attackMs);
-    a = xsimd::sqrt(linearCutoffRad / g);
+    aOmegaLinSqrt = sqrt(MathFunctions<SampleType>::tauToOmega(attackMs));
 }
 
 template<typename SampleType>
-void RL_Modulating_TPTz<SampleType>::setLinearCutoff(SampleType linearCutoffHz) noexcept
+void NLBallisticsFilter<SampleType>::setAttackNonlinearity(SampleType nonlinearityN) noexcept
 {
-    linearCutoffRad = SIMD(juce::MathConstants<SampleType>::twoPi * linearCutoffHz);
-    a = xsimd::sqrt(linearCutoffRad / g);
+    aNonlinearity = nonlinearityN;
+}
+template<typename SampleType>
+void NLBallisticsFilter<SampleType>::setRelease(SampleType releaseMs) noexcept
+{
+    rOmegaLinSqrt = sqrt(MathFunctions<SampleType>::tauToOmega(releaseMs));
 }
 
 template<typename SampleType>
-void RL_Modulating_TPTz<SampleType>::setSaturation(SampleType saturationConstant) noexcept
+void NLBallisticsFilter<SampleType>::setReleaseNonlinearity(SampleType nonlinearityN) noexcept
 {
-    sat = SIMD(saturationConstant);
+    rNonlinearity = nonlinearityN;
 }
 
 template<typename SampleType>
-void RL_Modulating_TPTz<SampleType>::setIntensity(SampleType intensitydB) noexcept
+void NLBallisticsFilter<SampleType>::reset()
 {
-    g = SIMD(juce::Decibels::decibelsToGain(intensitydB));
-    a = xsimd::sqrt(linearCutoffRad / g);
+    nlMM1.reset();
+    std::fill(_y.begin(), _y.end(), SampleType(0.0));
 }
 
 template<typename SampleType>
-void RL_Modulating_TPTz<SampleType>::reset()
+void NLBallisticsFilter<SampleType>::prepare(SampleType sampleRate, size_t numInputChannels)
 {
-    y = SIMD(0.0);
-    mm1_TPT.reset();
+    nlMM1.prepare(sampleRate, numInputChannels);
+    _y.resize(numInputChannels);
+
+    std::fill(_y.begin(), _y.end(), SampleType(0.0));
 }
 
-template class RL_Modulating_TPTz<float>;
-template class RL_Modulating_TPTz<double>;
-*/
+template class NLBallisticsFilter<float>;
+template class NLBallisticsFilter<double>;
+
+#pragma endregion
+
+#pragma region NLDET
+
+template<typename SampleType>
+void NLDET<SampleType>::reset()
+{
+    envFast.reset();
+    envSlow.reset();
+}
+
+template<typename SampleType>
+void NLDET<SampleType>::prepare(SampleType sampleRate, size_t numInputChannels)
+{
+    envFast.prepare(sampleRate, numInputChannels);
+    envSlow.prepare(sampleRate, numInputChannels);
+}
+
+template class NLDET<float>;
+template class NLDET<double>;
+
+#pragma endregion
+
+

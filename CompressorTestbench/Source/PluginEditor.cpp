@@ -16,16 +16,86 @@ CompressorTestbenchAudioProcessorEditor::CompressorTestbenchAudioProcessorEditor
     valueTreeState (vts)
 {
     //Title
-    compressorLabel.setText("Compressor Testbench", juce::dontSendNotification);
-    addAndMakeVisible(compressorLabel);
+    titleLabel.setText("Dynamics Processor Testbench", juce::dontSendNotification);
+    addAndMakeVisible(titleLabel);
+
+    //Input Section
+    inputSectionLabel.setText("Input", juce::dontSendNotification);
+    addAndMakeVisible(inputSectionLabel);
+
+    //Input Filter
+    inputFilterComboBox.addItem("None", 1);
+    inputFilterComboBox.addItem("LP1", 2);
+    inputFilterComboBox.addItem("HP1", 3);
+    inputFilterComboBox.onChange = [this]
+    {
+        audioProcessor.dynamicsProcessor.setInputFilterType
+        (
+            DynamicsProcessorInputFilterType(inputFilterComboBox.getSelectedId())
+        );
+    };
+    addAndMakeVisible(inputFilterComboBox);
+
+    inputFilterLabel.setText("Input Filter", juce::dontSendNotification);
+    inputFilterLabel.attachToComponent(&inputFilterComboBox, true);
+    addAndMakeVisible(inputFilterLabel);
+
+    inputFilterAttachment.reset(new ComboBoxAttachment(valueTreeState, "inputFilterType", inputFilterComboBox));
+
+    //Cutoff
+    cutoffSlider.setTextValueSuffix(" Hz");
+    cutoffSlider.onValueChange = [this]
+    {
+        audioProcessor.dynamicsProcessor.setInputFilterCutoff(cutoffSlider.getValue());
+    };
+    addAndMakeVisible(cutoffSlider);
+
+    cutoffLabel.setText("Cutoff", juce::dontSendNotification);
+    cutoffLabel.attachToComponent(&cutoffSlider, true);
+    addAndMakeVisible(cutoffLabel);
+
+    cutoffAttachment.reset(new SliderAttachment(valueTreeState, "inputFilterCutoff", cutoffSlider));
+
+    //Feedback Saturation
+    feedbackSaturationButton.onStateChange = [this]
+    {
+        audioProcessor.dynamicsProcessor.setInputFilterFeedbackSaturation(feedbackSaturationButton.getToggleState());
+    };
+    addAndMakeVisible(feedbackSaturationButton);
+
+    feedbackSaturationLabel.setText("Feedback Saturation", juce::dontSendNotification);
+    feedbackSaturationLabel.attachToComponent(&feedbackSaturationButton, true);
+    addAndMakeVisible(feedbackSaturationLabel);
+
+    feedbackSaturationAttachment.reset(new ButtonAttachment(valueTreeState, "inputFilterFeedbackSaturation", feedbackSaturationButton));
+
+    //Saturation
+    saturationSlider.onValueChange = [this]
+    {
+        audioProcessor.dynamicsProcessor.setInputFilterSaturation(saturationSlider.getValue());
+    };
+    addAndMakeVisible(saturationSlider);
+
+    saturationLabel.setText("Saturation", juce::dontSendNotification);
+    saturationLabel.attachToComponent(&saturationSlider, true);
+    addAndMakeVisible(saturationLabel);
+
+    cutoffAttachment.reset(new SliderAttachment(valueTreeState, "inputFilterSaturation", saturationSlider));
+
+    //Sidechain Section
+    sidechainSectionLabel.setText("Sidechain", juce::dontSendNotification);
+    addAndMakeVisible(sidechainSectionLabel);
 
     //Sidechain Input
     sidechainInputComboBox.addItem("Feedforward", 1);
     sidechainInputComboBox.addItem("Feedback", 2);
-    sidechainInputComboBox.addItem("Sidechain", 3);
+    //sidechainInputComboBox.addItem("Sidechain", 3);
     sidechainInputComboBox.onChange = [this]
     {
-        audioProcessor.compressor.setSidechainType(CompressorSidechainType(sidechainInputComboBox.getSelectedId()));
+        audioProcessor.dynamicsProcessor.setSidechainInputType
+        (
+            DynamicsProcessorSidechainInputType(sidechainInputComboBox.getSelectedId())
+        );
     };
     addAndMakeVisible(sidechainInputComboBox);
 
@@ -35,55 +105,69 @@ CompressorTestbenchAudioProcessorEditor::CompressorTestbenchAudioProcessorEditor
 
     sidechainInputAttachment.reset(new ComboBoxAttachment(valueTreeState, "sidechainInput", sidechainInputComboBox));
 
-    //Input
-    sidechainInputGainSlider.setTextValueSuffix(" dB");
-    sidechainInputGainSlider.onValueChange = [this]
-    {
-        audioProcessor.compressor.setInputGain(sidechainInputGainSlider.getValue());
-    };
-    addAndMakeVisible(sidechainInputGainSlider);
-
-    sidechainInputGainLabel.setText("Sidechain Input Gain", juce::dontSendNotification);
-    sidechainInputGainLabel.attachToComponent(&sidechainInputGainSlider, true);
-    addAndMakeVisible(sidechainInputGainLabel);
-
-    sidechainInputGainAttachment.reset(new SliderAttachment(valueTreeState, "sidechainInputGain", sidechainInputGainSlider));
-    
-    //Detector
-    detectorComboBox.addItem("Peak", 1);
-    detectorComboBox.addItem("Half Wave Rectifier", 2);
-    detectorComboBox.addItem("Full Wave Rectifier", 3);
-    detectorComboBox.addItem("LUFS", 4);
-    detectorComboBox.onChange = [this]
-    {
-        audioProcessor.compressor.setDetectorMode(DetectorType(detectorComboBox.getSelectedId()));
-    };
-    addAndMakeVisible(detectorComboBox);
-
-    detectorLabel.setText("Detector", juce::dontSendNotification);
-    detectorLabel.attachToComponent(&detectorComboBox, true);
-    addAndMakeVisible(detectorLabel);
-
-    detectorAttachment.reset(new ComboBoxAttachment(valueTreeState, "detector", detectorComboBox));
-
     //Stereo Link
-    stereoLinkToggle.onStateChange = [this]
+    stereoLinkButton.onStateChange = [this]
     {
-        audioProcessor.compressor.setStereoLink(stereoLinkToggle.getToggleState());
+        audioProcessor.dynamicsProcessor.setStereoLink(stereoLinkButton.getToggleState());
     };
-    addAndMakeVisible(stereoLinkToggle);
+    addAndMakeVisible(stereoLinkButton);
 
     stereoLinkLabel.setText("Stereo Link", juce::dontSendNotification);
-    stereoLinkLabel.attachToComponent(&stereoLinkToggle, true);
+    stereoLinkLabel.attachToComponent(&stereoLinkButton, true);
     addAndMakeVisible(stereoLinkLabel);
 
-    stereoLinkAttachment.reset(new ButtonAttachment(valueTreeState, "stereoLink", stereoLinkToggle));
+    stereoLinkAttachment.reset(new ButtonAttachment(valueTreeState, "stereoLink", stereoLinkButton));
+
+    //Pre-filter
+    preFilterComboBox.addItem("None", 1);
+    preFilterComboBox.addItem("K-Weighting", 2);
+    preFilterComboBox.onChange = [this]
+    {
+        audioProcessor.dynamicsProcessor.setPreFilterType(DetectorPreFilterType(preFilterComboBox.getSelectedId()));
+    };
+    addAndMakeVisible(preFilterComboBox);
+
+    preFilterLabel.setText("Pre-filter", juce::dontSendNotification);
+    preFilterLabel.attachToComponent(&preFilterComboBox, true);
+    addAndMakeVisible(preFilterLabel);
+
+    preFilterAttachment.reset(new ComboBoxAttachment(valueTreeState, "preFilterType", preFilterComboBox));
+
+    //Rectifier
+    rectifierComboBox.addItem("Peak", 1);
+    rectifierComboBox.addItem("Half Wave", 2);
+    rectifierComboBox.addItem("Full Wave", 3);
+    rectifierComboBox.onChange = [this]
+    {
+        audioProcessor.dynamicsProcessor.setRectifierType(DetectorRectifierType(rectifierComboBox.getSelectedId()));
+    };
+    addAndMakeVisible(rectifierComboBox);
+
+    rectifierLabel.setText("Rectifier", juce::dontSendNotification);
+    rectifierLabel.attachToComponent(&rectifierComboBox, true);
+    addAndMakeVisible(rectifierLabel);
+
+    rectifierAttachment.reset(new ComboBoxAttachment(valueTreeState, "rectifierType", rectifierComboBox));
+
+    //Detector Gain
+    detectorGainSlider.setTextValueSuffix(" dB");
+    detectorGainSlider.onValueChange = [this]
+    {
+        audioProcessor.dynamicsProcessor.setDetectorGain(detectorGainSlider.getValue());
+    };
+    addAndMakeVisible(detectorGainSlider);
+
+    detectorGainLabel.setText("Detector Gain", juce::dontSendNotification);
+    detectorGainLabel.attachToComponent(&detectorGainSlider, true);
+    addAndMakeVisible(detectorGainLabel);
+
+    detectorGainAttachment.reset(new SliderAttachment(valueTreeState, "detectorGain", detectorGainSlider));
 
     //Threshold
     thresholdSlider.setTextValueSuffix(" dB");
     thresholdSlider.onValueChange = [this]
     {
-        audioProcessor.compressor.setThreshold(thresholdSlider.getValue());
+        audioProcessor.dynamicsProcessor.setThreshold(thresholdSlider.getValue());
     };
     addAndMakeVisible(thresholdSlider);
 
@@ -93,24 +177,28 @@ CompressorTestbenchAudioProcessorEditor::CompressorTestbenchAudioProcessorEditor
 
     thresholdAttachment.reset(new SliderAttachment(valueTreeState, "threshold", thresholdSlider));
 
-    //Ratio
-    ratioSlider.onValueChange = [this]
+    //Compressor
+    compressorButton.onStateChange = [this]
     {
-        audioProcessor.compressor.setRatio(ratioSlider.getValue());
+        audioProcessor.dynamicsProcessor.setCompressor(compressorButton.getToggleState());
     };
-    addAndMakeVisible(ratioSlider);
+    addAndMakeVisible(compressorButton);
 
-    ratioLabel.setText("Ratio", juce::dontSendNotification);
-    ratioLabel.attachToComponent(&ratioSlider, true);
-    addAndMakeVisible(ratioLabel);
+    compressorLabel.setText("Compressor", juce::dontSendNotification);
+    compressorLabel.attachToComponent(&compressorButton, true);
+    addAndMakeVisible(compressorLabel);
 
-    ratioAttachment.reset(new SliderAttachment(valueTreeState, "ratio", ratioSlider));
+    compressorAttachment.reset(new ButtonAttachment(valueTreeState, "compressor", compressorButton));
+
+    //Compressor Section
+    compressorSectionLabel.setText("Compressor Only", juce::dontSendNotification);
+    addAndMakeVisible(compressorSectionLabel);
 
     //Attack
     attackSlider.setTextValueSuffix(" ms");
-    attackSlider.onValueChange = [this] 
+    attackSlider.onValueChange = [this]
     {
-        audioProcessor.compressor.setAttack(attackSlider.getValue());
+        audioProcessor.dynamicsProcessor.setCompressorAttack(attackSlider.getValue());
     };
     addAndMakeVisible(attackSlider);
 
@@ -118,13 +206,26 @@ CompressorTestbenchAudioProcessorEditor::CompressorTestbenchAudioProcessorEditor
     attackLabel.attachToComponent(&attackSlider, true);
     addAndMakeVisible(attackLabel);
 
-    attackAttachment.reset(new SliderAttachment(valueTreeState, "attack", attackSlider));
-   
+    attackAttachment.reset(new SliderAttachment(valueTreeState, "comrpessorAttack", attackSlider));
+
+    //Attack Nonlinearity
+    attackNonlinearitySlider.onValueChange = [this]
+    {
+        audioProcessor.dynamicsProcessor.setCompressorAttackNonlinearity(attackNonlinearitySlider.getValue());
+    };
+    addAndMakeVisible(attackNonlinearitySlider);
+
+    attackNonlinearityLabel.setText("Attack Nonlinearity", juce::dontSendNotification);
+    attackNonlinearityLabel.attachToComponent(&attackNonlinearitySlider, true);
+    addAndMakeVisible(attackNonlinearityLabel);
+
+    attackNonlinearityAttachment.reset(new SliderAttachment(valueTreeState, "compressorAttackNonlinearity", attackNonlinearitySlider));
+
     //Release
     releaseSlider.setTextValueSuffix(" ms");
-    releaseSlider.onValueChange = [this] 
+    releaseSlider.onValueChange = [this]
     {
-        audioProcessor.compressor.setRelease(releaseSlider.getValue());
+        audioProcessor.dynamicsProcessor.setCompressorRelease(releaseSlider.getValue());
     };
     addAndMakeVisible(releaseSlider);
 
@@ -132,66 +233,131 @@ CompressorTestbenchAudioProcessorEditor::CompressorTestbenchAudioProcessorEditor
     releaseLabel.attachToComponent(&releaseSlider, true);
     addAndMakeVisible(releaseLabel);
 
-    releaseAttachment.reset(new SliderAttachment(valueTreeState, "release", releaseSlider));
+    releaseAttachment.reset(new SliderAttachment(valueTreeState, "compressorRelease", releaseSlider));
 
-    //RMS
-    RMSToggle.onStateChange = [this]
+    //Release Nonlinearity
+    releaseNonlinearitySlider.onValueChange = [this]
     {
-        audioProcessor.compressor.setRMS(RMSToggle.getToggleState());
+        audioProcessor.dynamicsProcessor.setCompressorReleaseNonlinearity(releaseNonlinearitySlider.getValue());
     };
-    addAndMakeVisible(RMSToggle);
+    addAndMakeVisible(releaseNonlinearitySlider);
 
-    RMSLabel.setText("Enable RMS", juce::dontSendNotification);
-    RMSLabel.attachToComponent(&RMSToggle, true);
-    addAndMakeVisible(RMSLabel);
+    releaseNonlinearityLabel.setText("Release Nonlinearity", juce::dontSendNotification);
+    releaseNonlinearityLabel.attachToComponent(&releaseNonlinearitySlider, true);
+    addAndMakeVisible(releaseNonlinearityLabel);
 
-    RMSAttachment.reset(new ButtonAttachment(valueTreeState, "RMS", RMSToggle));
+    releaseNonlinearityAttachment.reset(new SliderAttachment(valueTreeState, "compressorReleaseNonlinearity", releaseNonlinearitySlider));
 
-    //RL
-    RLToggle.onStateChange = [this]
+    //Ratio
+    ratioSlider.onValueChange = [this]
     {
-        audioProcessor.compressor.setRL(RLToggle.getToggleState());
+        audioProcessor.dynamicsProcessor.setCompressorRatio(ratioSlider.getValue());
     };
-    addAndMakeVisible(RLToggle);
+    addAndMakeVisible(ratioSlider);
 
-    RLLabel.setText("RL", juce::dontSendNotification);
-    RLLabel.attachToComponent(&RLToggle, true);
-    addAndMakeVisible(RLLabel);
+    ratioLabel.setText("Ratio", juce::dontSendNotification);
+    ratioLabel.attachToComponent(&ratioSlider, true);
+    addAndMakeVisible(ratioLabel);
 
-    RLAttachment.reset(new ButtonAttachment(valueTreeState, "RL", RLToggle));
+    ratioAttachment.reset(new SliderAttachment(valueTreeState, "compressorRatio", ratioSlider));
 
-    //RL Linear Tau
-    linearTauRLSlider.setTextValueSuffix(" ms");
-    linearTauRLSlider.onValueChange = [this]
+    //Transient Designer Section
+    transientDesignerSectionLabel.setText("Transient Designer Only", juce::dontSendNotification);
+
+    //Tau
+    tauSlider.setTextValueSuffix(" ms");
+    tauSlider.onValueChange = [this]
     {
-        audioProcessor.compressor.setLinearTauRL(linearTauRLSlider.getValue());
+        audioProcessor.dynamicsProcessor.setTransientDesignerTau(tauSlider.getValue());
     };
-    addAndMakeVisible(linearTauRLSlider);
+    addAndMakeVisible(tauSlider);
 
-    linearTauRLLabel.setText("RL Linear Tau", juce::dontSendNotification);
-    linearTauRLLabel.attachToComponent(&linearTauRLSlider, true);
-    addAndMakeVisible(linearTauRLLabel);
+    tauLabel.setText("Tau", juce::dontSendNotification);
+    tauLabel.attachToComponent(&tauSlider, true);
+    addAndMakeVisible(tauLabel);
 
-    linearTauRLAttachment.reset(new SliderAttachment(valueTreeState, "linearTauRL", linearTauRLSlider));
+    tauAttachment.reset(new SliderAttachment(valueTreeState, "transientDesignerTau", tauSlider));
 
-    //RL
-    nonlinearityRLSlider.onValueChange = [this]
+    //Sensitivity
+    sensitivitySlider.onValueChange = [this]
     {
-        audioProcessor.compressor.setSaturationRL(nonlinearityRLSlider.getValue());
+        audioProcessor.dynamicsProcessor.setTransientDesignerSensitivity(sensitivitySlider.getValue());
     };
-    addAndMakeVisible(nonlinearityRLSlider);
+    addAndMakeVisible(sensitivitySlider);
+
+    sensitivityLabel.setText("Sensitivity", juce::dontSendNotification);
+    sensitivityLabel.attachToComponent(&sensitivitySlider, true);
+    addAndMakeVisible(sensitivityLabel);
+
+    sensitivityAttachment.reset(new SliderAttachment(valueTreeState, "transientDesignerSensitivity", sensitivitySlider));
   
-    nonlinearityRLLabel.setText("RL Nonlinearity", juce::dontSendNotification);
-    nonlinearityRLLabel.attachToComponent(&nonlinearityRLSlider, true);
-    addAndMakeVisible(nonlinearityRLLabel);
+    //Nonlinearity
+    nonlinearitySlider.onValueChange = [this]
+    {
+        audioProcessor.dynamicsProcessor.setTransientDesignerNonlinearity(nonlinearitySlider.getValue());
+    };
+    addAndMakeVisible(nonlinearitySlider);
 
-    nonlinearityRLAttachment.reset(new SliderAttachment(valueTreeState, "nonlinearityRL", nonlinearityRLSlider));
+    nonlinearityLabel.setText("Nonlinearity", juce::dontSendNotification);
+    nonlinearityLabel.attachToComponent(&nonlinearitySlider, true);
+    addAndMakeVisible(nonlinearityLabel);
+
+    nonlinearityAttachment.reset(new SliderAttachment(valueTreeState, "transientDesignerNonlinearity", nonlinearitySlider));
+
+    //Attack Ratio
+    attackRatioSlider.onValueChange = [this]
+    {
+        audioProcessor.dynamicsProcessor.setTransientDesignerAttackRatio(attackRatioSlider.getValue());
+    };
+    addAndMakeVisible(attackRatioSlider);
+
+    attackRatioLabel.setText("Attack Ratio", juce::dontSendNotification);
+    attackRatioLabel.attachToComponent(&attackRatioSlider, true);
+    addAndMakeVisible(attackRatioLabel);
+
+    attackRatioAttachment.reset(new SliderAttachment(valueTreeState, "transientDesignerAttackRatio", attackRatioSlider));
+
+    //Release Ratio
+    releaseRatioSlider.onValueChange = [this]
+    {
+        audioProcessor.dynamicsProcessor.setTransientDesignerReleaseRatio(releaseRatioSlider.getValue());
+    };
+    addAndMakeVisible(releaseRatioSlider);
+
+    releaseRatioLabel.setText("Release Ratio", juce::dontSendNotification);
+    releaseRatioLabel.attachToComponent(&releaseRatioSlider, true);
+    addAndMakeVisible(releaseRatioLabel);
+
+    releaseRatioAttachment.reset(new SliderAttachment(valueTreeState, "transientDesignerReleaseRatio", releaseRatioSlider));
+
+    //Output 
+    outputSectionLabel.setText("Output", juce::dontSendNotification);
+    addAndMakeVisible(outputSectionLabel);
+
+#ifdef DEBUG
+    //Output
+    outputComboBox.addItem("Detector", 1);
+    outputComboBox.addItem("Filter", 2);
+    outputComboBox.addItem("Transfer Function", 3);
+    outputComboBox.onChange = [this]
+    {
+        audioProcessor.dynamicsProcessor.setOutputType
+        (
+            DynamicsProcessorOutputType(outputComboBox.getSelectedId())
+        );
+    };
+    addAndMakeVisible(outputComboBox);
+
+    outputLabel.setText("Output", juce::dontSendNotification);
+    outputLabel.attachToComponent(&outputComboBox, true);
+    addAndMakeVisible(outputLabel);
+#endif
 
     //Wet
     wetSlider.setTextValueSuffix(" dB");
     wetSlider.onValueChange = [this]
     {
-        audioProcessor.compressor.setWetGain(wetSlider.getValue());
+        audioProcessor.dynamicsProcessor.setWetGain(wetSlider.getValue());
     };
     addAndMakeVisible(wetSlider);
     
@@ -205,7 +371,7 @@ CompressorTestbenchAudioProcessorEditor::CompressorTestbenchAudioProcessorEditor
     drySlider.setTextValueSuffix(" dB");
     drySlider.onValueChange = [this] 
     {
-        audioProcessor.compressor.setDryGain(drySlider.getValue());
+        audioProcessor.dynamicsProcessor.setDryGain(drySlider.getValue());
     };
     addAndMakeVisible(drySlider);
 
@@ -216,7 +382,7 @@ CompressorTestbenchAudioProcessorEditor::CompressorTestbenchAudioProcessorEditor
     dryAttachment.reset(new SliderAttachment(valueTreeState, "dry", drySlider));
 
     //Window Size
-    setSize (400, 2 * marginT + 15 * sliderDY);
+    setSize (400, 2 * marginT + 30 * sliderDY);
 }
 
 CompressorTestbenchAudioProcessorEditor::~CompressorTestbenchAudioProcessorEditor()
@@ -239,20 +405,43 @@ void CompressorTestbenchAudioProcessorEditor::resized()
     auto labelWidth = getWidth() / 2;
     auto labelL = (getWidth() / 2) - (labelWidth / 2);
 
-    compressorLabel.setBounds(labelL, marginT, labelWidth, sliderHeight);
+    titleLabel.setBounds(labelL, marginT, labelWidth, sliderHeight);
 
-    sidechainInputComboBox.setBounds(marginL, marginT + sliderDY, sliderWidth, sliderHeight);
-    sidechainInputGainSlider.setBounds(marginL, marginT + 2 * sliderDY, sliderWidth, sliderHeight);
-    detectorComboBox.setBounds(marginL, marginT + 3 * sliderDY, sliderWidth, sliderHeight);
-    stereoLinkToggle.setBounds(marginL, marginT + 4 * sliderDY, sliderWidth, sliderHeight);
-    thresholdSlider.setBounds(marginL, marginT + 5 * sliderDY, sliderWidth, sliderHeight);
-    ratioSlider.setBounds(marginL, marginT + 6 * sliderDY, sliderWidth, sliderHeight);
-    attackSlider.setBounds(marginL, marginT + 7 * sliderDY, sliderWidth, sliderHeight);
-    releaseSlider.setBounds(marginL, marginT + 8 * sliderDY, sliderWidth, sliderHeight);
-    RMSToggle.setBounds(marginL, marginT + 9 * sliderDY, sliderWidth, sliderHeight);
-    RLToggle.setBounds(marginL, marginT + 10 * sliderDY, labelWidth, sliderHeight);
-    linearTauRLSlider.setBounds(marginL, marginT + 11 * sliderDY, sliderWidth, sliderHeight);
-    nonlinearityRLSlider.setBounds(marginL, marginT + 12 * sliderDY, sliderWidth, sliderHeight);
-    wetSlider.setBounds(marginL, marginT + 13 * sliderDY, sliderWidth, sliderHeight);
-    drySlider.setBounds(marginL, marginT + 14 * sliderDY, sliderWidth, sliderHeight);
+    inputSectionLabel.setBounds(marginL, marginT + sliderDY, labelWidth, sliderHeight);
+    inputFilterComboBox.setBounds(marginL, marginT + 2 * sliderDY, sliderWidth, sliderHeight);
+    cutoffSlider.setBounds(marginL, marginT + 3 * sliderDY, sliderWidth, sliderHeight);
+    feedbackSaturationButton.setBounds(marginL, marginT + 4 * sliderDY, sliderWidth, sliderHeight);
+    saturationSlider.setBounds(marginL, marginT + 5 * sliderDY, sliderWidth, sliderHeight);
+
+    sidechainSectionLabel.setBounds(marginL, marginT + 6 * sliderDY, labelWidth, sliderHeight);
+    sidechainInputComboBox.setBounds(marginL, marginT + 7 * sliderDY, sliderWidth, sliderHeight);
+    stereoLinkButton.setBounds(marginL, marginT + 8 * sliderDY, sliderWidth, sliderHeight);
+    preFilterComboBox.setBounds(marginL, marginT + 9 * sliderDY, sliderWidth, sliderHeight);
+    rectifierComboBox.setBounds(marginL, marginT + 10 * sliderDY, sliderWidth, sliderHeight);
+    detectorGainSlider.setBounds(marginL, marginT + 11 * sliderDY, sliderWidth, sliderHeight);
+    thresholdSlider.setBounds(marginL, marginT + 12 * sliderDY, sliderWidth, sliderHeight);
+    compressorButton.setBounds(marginL, marginT + 13 * sliderDY, sliderWidth, sliderHeight);
+
+    compressorSectionLabel.setBounds(marginL, marginT + 14* sliderDY, labelWidth, sliderHeight);
+    attackSlider.setBounds(marginL, marginT + 15 * sliderDY, sliderWidth, sliderHeight);
+    attackNonlinearitySlider.setBounds(marginL, marginT + 16 * sliderDY, sliderWidth, sliderHeight);
+    releaseSlider.setBounds(marginL, marginT + 17 * sliderDY, sliderWidth, sliderHeight);
+    releaseNonlinearitySlider.setBounds(marginL, marginT + 18 * sliderDY, sliderWidth, sliderHeight);
+    ratioSlider.setBounds(marginL, marginT + 19 * sliderDY, sliderWidth, sliderHeight);
+
+    transientDesignerSectionLabel.setBounds(marginL, marginT + 20 * sliderDY, labelWidth, sliderHeight);
+    tauSlider.setBounds(marginL, marginT + 21 * sliderDY, sliderWidth, sliderHeight);
+    sensitivitySlider.setBounds(marginL, marginT + 22 * sliderDY, sliderWidth, sliderHeight);
+    nonlinearitySlider.setBounds(marginL, marginT + 23 * sliderDY, sliderWidth, sliderHeight);
+    attackRatioSlider.setBounds(marginL, marginT + 24 * sliderDY, sliderWidth, sliderHeight);
+    releaseRatioSlider.setBounds(marginL, marginT + 25 * sliderDY, sliderWidth, sliderHeight);
+
+    outputSectionLabel.setBounds(marginL, marginT + 26 * sliderDY, labelWidth, sliderHeight);
+
+#ifdef DEBUG
+    outputComboBox.setBounds(marginL, marginT + 27 * sliderDY, sliderWidth, sliderHeight);
+#endif
+
+    wetSlider.setBounds(marginL, marginT + 28 * sliderDY, sliderWidth, sliderHeight);
+    drySlider.setBounds(marginL, marginT + 29 * sliderDY, sliderWidth, sliderHeight);
 }
