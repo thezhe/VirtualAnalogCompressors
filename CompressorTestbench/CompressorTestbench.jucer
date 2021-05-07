@@ -2,8 +2,8 @@
 
 <JUCERPROJECT id="kLFAAs" name="CompressorTestbench" projectType="audioplug"
               useAppConfig="0" addUsingNamespaceToJuceHeader="0" displaySplashScreen="1"
-              jucerFormatVersion="1" pluginFormats="buildAU,buildVST3" headerPath="C:\Users\tigr2\Documents\Libraries"
-              defines="_ITERATOR_DEBUG_LEVEL=0" cppLanguageStandard="14">
+              jucerFormatVersion="1" pluginFormats="buildAU,buildVST3" defines="_ITERATOR_DEBUG_LEVEL=0"
+              cppLanguageStandard="latest" pluginManufacturer="Zhe Deng" companyName="Zhe Deng">
   <MAINGROUP id="ZzvBcj" name="CompressorTestbench">
     <GROUP id="{02A2FA68-6A95-ED69-DBA0-A9567568F2A5}" name="Source">
       <FILE id="S8KYzW" name="Core.h" compile="0" resource="0" file="Source/Core.h"/>
@@ -32,8 +32,8 @@
     <VS2019 targetFolder="Builds/VisualStudio2019">
       <CONFIGURATIONS>
         <CONFIGURATION isDebug="0" name="Release" targetName="CompressorTestbench"/>
-        <CONFIGURATION isDebug="1" name="DebugWithOptmimization" targetName="CompressorTestbench_Debug"
-                       optimisation="3"/>
+        <CONFIGURATION isDebug="0" name="ReleaseWithDebug" targetName="CompressorTestbench"
+                       alwaysGenerateDebugSymbols="1"/>
       </CONFIGURATIONS>
       <MODULEPATHS>
         <MODULEPATH id="juce_audio_basics" path="../../../../../../JUCE/modules"/>

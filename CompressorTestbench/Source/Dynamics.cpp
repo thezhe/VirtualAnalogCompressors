@@ -3,8 +3,8 @@
     Zhe Deng 2020
     thezhefromcenterville@gmail.com
 
-    This file is part of CompressorTestBench which is released under the MIT license.
-    See file LICENSE or go to https://github.com/thezhe/VirtualAnalogCompressors for full license details.
+    This file is part of TestBench which is released under the MIT license.
+    See file LICENSE or go to https://github.com/thezhe/VirtualAnalogs for full license details.
   ==============================================================================
 */
 
@@ -13,9 +13,9 @@
 #pragma region DynamicsProcessor
 
 template<typename SampleType>
-inline void DynamicsProcessor<SampleType>::setStereoLink(bool linkEnable) noexcept
+inline void DynamicsProcessor<SampleType>::setStereoLink(bool enable) noexcept
 {
-    detector.setStereoLink(linkEnable);
+    stereoLink = enable;
 }
 
 template<typename SampleType>
@@ -33,85 +33,67 @@ void DynamicsProcessor<SampleType>::setRectifierType(DetectorRectifierType type)
 template<typename SampleType>
 void DynamicsProcessor<SampleType>::setDetectorGain(SampleType gaindB) noexcept
 {
-    detectorGain = Decibels::decibelsToGain(gaindB);
+    detectorGain = MathFunctions<SampleType>::decibelsToGain(gaindB);
 }
 
 template<typename SampleType>
 void DynamicsProcessor<SampleType>::setThreshold(SampleType thrdB) noexcept
 {
-    thrLin = Decibels::decibelsToGain(thrdB);
+    thrLin = MathFunctions<SampleType>::decibelsToGain(thrdB);
 }
 
 template<typename SampleType>
-void DynamicsProcessor<SampleType>::setCompressorAttack(SampleType attackMs) noexcept
+void DynamicsProcessor<SampleType>::setAttack(SampleType attackMs) noexcept
 {
-    nlBallisticsFilter.setAttack(attackMs);
+    nlEF.setAttack(attackMs);
 }
 
 template<typename SampleType>
-void DynamicsProcessor<SampleType>::setCompressorAttackNonlinearity(SampleType nonlinearityN) noexcept
+void DynamicsProcessor<SampleType>::setAttackNonlinearity(SampleType nonlinearityN) noexcept
 {
-    nlBallisticsFilter.setAttackNonlinearity(nonlinearityN);
+    nlEF.setAttackNonlinearity(nonlinearityN);
 }
 
 template<typename SampleType>
-void DynamicsProcessor<SampleType>::setCompressorRelease(SampleType releaseMs) noexcept
+void DynamicsProcessor<SampleType>::setRelease(SampleType releaseMs) noexcept
 {
-    nlBallisticsFilter.setRelease(releaseMs);
+    nlEF.setRelease(releaseMs);
 }
 
 template<typename SampleType>
-void DynamicsProcessor<SampleType>::setCompressorReleaseNonlinearity(SampleType nonlinearityN) noexcept
+void DynamicsProcessor<SampleType>::setReleaseNonlinearity(SampleType nonlinearityN) noexcept
 {
-    nlBallisticsFilter.setReleaseNonlinearity(nonlinearityN);
+    nlEF.setReleaseNonlinearity(nonlinearityN);
 }
 
 template<typename SampleType>
-void DynamicsProcessor<SampleType>::setCompressorRatio(SampleType ratioR) noexcept 
+void DynamicsProcessor<SampleType>::setPositiveEnvelopeRatio(SampleType ratioR) noexcept 
 { 
-    exponent = SampleType(1.0) / ratioR - SampleType(1.0); 
+    exponentP = SampleType(1.0) / ratioR - SampleType(1.0); 
 }
 
 template<typename SampleType>
-void DynamicsProcessor<SampleType>::setTransientDesignerTau(SampleType tauMs) noexcept
+void DynamicsProcessor<SampleType>::setNegativeEnvelopeRatio(SampleType ratioR) noexcept
 {
-    nlDET.setTau(tauMs);
+    exponentN = SampleType(1.0) / ratioR - SampleType(1.0);
 }
 
 template<typename SampleType>
-void DynamicsProcessor<SampleType>::setTransientDesignerSensitivity(SampleType sensS) noexcept
+void DynamicsProcessor<SampleType>::setSensitivity(SampleType sensitivity) noexcept
 {
-    nlDET.setSensitivity(sensS);
-}
-
-template<typename SampleType>
-void DynamicsProcessor<SampleType>::setTransientDesignerNonlinearity(SampleType nonlinearityN) noexcept
-{
-    nlDET.setNonlinearity(nonlinearityN);
-}
-
-template<typename SampleType>
-void DynamicsProcessor<SampleType>::setTransientDesignerAttackRatio(SampleType ratioR) noexcept
-{
-    exponentA = MathFunctions<SampleType>::ratioToExponent(ratioR);
-}
-
-template<typename SampleType>
-void DynamicsProcessor<SampleType>::setTransientDesignerReleaseRatio(SampleType ratioR) noexcept
-{
-    exponentR = MathFunctions<SampleType>::ratioToExponent(ratioR);
+    nlEF.setSensitivity(sensitivity);
 }
 
 template<typename SampleType>
 void DynamicsProcessor<SampleType>::setWetGain(SampleType wetdB) noexcept 
 { 
-    wetLin = Decibels::decibelsToGain(wetdB); 
+    wetLin = MathFunctions<SampleType>::decibelsToGain(wetdB); 
 }
 
 template<typename SampleType>
 void DynamicsProcessor<SampleType>::setDryGain(SampleType drydB) noexcept 
 { 
-    dryLin = Decibels::decibelsToGain(drydB); 
+    dryLin = MathFunctions<SampleType>::decibelsToGain(drydB); 
 }
 
 template<typename SampleType>
@@ -121,9 +103,7 @@ void DynamicsProcessor<SampleType>::reset()
     detector.reset();
 
     //filters
-    nlMM1.reset();
-    nlBallisticsFilter.reset();
-    nlDET.reset();
+    nlEF.reset();
 
     //state
     std::fill(_y.begin(), _y.end(), SampleType(0.0));
@@ -136,9 +116,7 @@ void DynamicsProcessor<SampleType>::prepare(SampleType sampleRate, size_t sample
     detector.prepare(sampleRate, samplesPerBlock, numInputChannels);
 
     //filters
-    nlMM1.prepare(sampleRate, numInputChannels);
-    nlBallisticsFilter.prepare(sampleRate, numInputChannels);
-    nlDET.prepare(sampleRate, numInputChannels);
+    nlEF.prepare(sampleRate, numChannels);
     
     //state
     _y.resize(numInputChannels);

@@ -1,6 +1,6 @@
 /*
   ==============================================================================
-    A Dynamic Processor composed of a Transient Designer and Compressor.
+    A hybrid Transient Designer-Compressor dynamics processor with saturation.
     
     Zhe Deng 2020
     thezhefromcenterville@gmail.com
@@ -15,14 +15,18 @@
 #include "NonlinearFilters.h"
 
 #ifdef DEBUG
+
 enum class DynamicsProcessorOutputType
 {
     Detector = 1,
-    Filter,
+    EnvelopeFilter,
     TransferFunction,
     Normal
 };
-#endif
+
+#endif 
+
+
 
 enum class DynamicsProcessorInputFilterType
 {
@@ -39,7 +43,10 @@ enum class DynamicsProcessorSidechainInputType
     External
 };
 
-/** Dynamic range compressor */
+/// <summary>
+/// A general <c>DynamicsProcessor</c> with compressor and transient designer capabilities
+/// </summary>
+/// <typeparam name="SampleType"></typeparam>
 template <typename SampleType>
 class DynamicsProcessor
 {
@@ -49,34 +56,21 @@ public:
 
     using SidechainInputType = DynamicsProcessorSidechainInputType;
 
-    DynamicsProcessor() {}
-
-    void setInputFilterType(FilterType type) noexcept
-    {
-        nlMM1.setFilterType(type);
-    }
-
-
-    void setInputFilterCutoff(SampleType cutoffHz) noexcept
-    {
-        nlMM1.setLinearCutoff(cutoffHz);
-    }
-
-    void setInputFilterFeedbackSaturation(bool feedback) noexcept
-    {
-        
-    }
-
-    void setInputFilterSaturation(SampleType nonlinearityN) noexcept
-    {
-        nlMM1.setNonlinearity(nonlinearityN);
-    }
-
     /** Set the sidechain input */
     void setSidechainInputType(SidechainInputType type) noexcept
     {
         sidechainInputType = type;
     }
+
+#ifdef DEBUG
+
+    void setOutputType(DynamicsProcessorOutputType type) noexcept
+    {
+        outputType = type;
+    }
+
+#endif
+
 
     /** Enable or disable stereo linking in the detector output
     *
@@ -96,49 +90,27 @@ public:
     /** Set the threshold in decibels */
     void setThreshold(SampleType thrdB) noexcept;
 
-    /** Set the effect as Compressor (and Expander) or Transient Designer */
-    void setCompressor(bool enable) noexcept
-    {
-        compressor = enable;
-    }
-
-#pragma region Compressor Only
+    void setKneeSofteness(SampleType softnessS) noexcept {}
 
     /** Set the attack time in miliseconds */
-    void setCompressorAttack(SampleType attackMs) noexcept;
+    void setAttack(SampleType attackMs) noexcept;
 
     /** Set the nonlinearity of the ballistics filter during attacks */
-    void setCompressorAttackNonlinearity(SampleType nonlinearityN) noexcept;
+    void setAttackNonlinearity(SampleType nonlinearityN) noexcept;
 
     /** Set the release time in miliseconds*/
-    void setCompressorRelease(SampleType releaseMs) noexcept;
+    void setRelease(SampleType releaseMs) noexcept;
 
     /** Set the nonlinearity of the ballistics filter during releases */
-    void setCompressorReleaseNonlinearity(SampleType nonlinearityN) noexcept;
+    void setReleaseNonlinearity(SampleType nonlinearityN) noexcept;
     
-    /** Set the ratio */
-    void setCompressorRatio(SampleType ratioR) noexcept;
+    /** Ratio to use when the envelope is positive */
+    void setPositiveEnvelopeRatio(SampleType ratioR) noexcept;
 
-#pragma endregion
+    /** Ratio to use when the envelope is negative */
+    void setNegativeEnvelopeRatio(SampleType ratioR) noexcept;
 
-#pragma region Transient Designer Only
-
-    /** Set the DET tau in miliseconds */
-    void setTransientDesignerTau(SampleType tauMs) noexcept;
-
-    /** Set the DET sensitivity */
-    void setTransientDesignerSensitivity(SampleType sensS) noexcept;
-
-    /** Set the DET nonlinearity */
-    void setTransientDesignerNonlinearity(SampleType nonlinearityN) noexcept;
-
-    /** Set the DET attack ratio */
-    void setTransientDesignerAttackRatio(SampleType ratioR) noexcept;
-
-    /** Set the DET release ratio */
-    void setTransientDesignerReleaseRatio(SampleType ratioR) noexcept;
-
-#pragma endregion
+    void setSensitivity(SampleType sensitivity) noexcept;
 
     /** Set the gain of the processed signal in decibels */
     void setWetGain(SampleType wetdB) noexcept;
@@ -146,89 +118,105 @@ public:
     /** Set the gain of the unprocessed signal in decibels */
     void setDryGain(SampleType drydB) noexcept;
 
-
-#ifdef DEBUG
-    /** Ouput the signal in the selected node of the sidechain 
-    *
-    *   Note: Debug only
-    */
-    void setOutputType(DynamicsProcessorOutputType output) noexcept
-    {
-        outputType = output;
-    }
-#endif
-
     /** Reset the internal state */
     void reset();
 
     /** Prepare the processing specifications */
     void prepare(SampleType sampleRate, size_t samplesPerBlock, size_t numInputChannels);
     
-    /** Process a sample given a buffer, channel, and frame */
-    SampleType processSample(SampleType** buffer, size_t channel, size_t frame) noexcept
+    /** Process a sample given the channel */
+    SampleType processSample(SampleType x, size_t channel) noexcept
     {
-        auto& y = _y[channel];
-        auto x = buffer[channel][frame];
-        SampleType d;
-
         //Detector
-        d = (sidechainInputType == SidechainInputType::Feedforward)?
-        detector.processSample(buffer, channel, frame):
-        detector.processSample(_y, channel);
+        SampleType d = detectorGain * detector.processSample(x, channel);
 
-        //Detector Gain
-        d *= detectorGain;
+        //Smoothing
+        SampleType env = nlEF.processSample(x, channel);
 
-        SampleType b, tf;
-        //Smoothing and Mapping to Vc
-        if (compressor)
-        {
-            //Ballistics Filter
-            b = nlBallisticsFilter.processSample(d, channel);
+        //Transfer Function
+        SampleType tf = MathFunctions<SampleType>::ttf(x, thrLin, exponentP, exponentN);
 
-            tf = MathFunctions<SampleType>::ctf(b, thrLin, exponent);
-
-            //ctf and saturator      
-            y = nlMM1.processSample(x, channel) * tf;
-        }
-        else
-        {
-            //DET
-            b = nlDET.processSample(d, channel);
-
-            tf = MathFunctions<SampleType>::ttf(b, thrLin, exponentA, exponentR);
-            //ttf and saturator 
-            y = nlMM1.processSample(x, channel) * tf;
-        }
-        
 #ifdef DEBUG
+
         switch (outputType)
         {
         case DynamicsProcessorOutputType::Detector:
             return d;
             break;
-        case DynamicsProcessorOutputType::Filter:
-            return b;
+        case DynamicsProcessorOutputType::EnvelopeFilter:
+            return env;
             break;
         case DynamicsProcessorOutputType::TransferFunction:
             return tf;
             break;
-        default: //DynamicsProcessorOutputType::Normal:
-            return dryLin * x + wetLin * y;
+        default:
+            return x * tf;
             break;
         }
-#endif
 
-        //mix
-        return dryLin * x + wetLin * y;
+#endif
+        //Saturation
+        return x * tf;
+       
     }
 
     /** Process a buffer */
     void process(SampleType** buffer) noexcept
     {
-        for (size_t i = 0; i < blockSize; ++i)
-            for (size_t ch = 0; ch < numChannels; ++ch)
-                buffer[ch][i] = processSample(buffer, ch, i);
+        //seperate cases for stereoLink, stereoLink feedback, no SL, noSL feedback
+        if (stereoLink)
+        {
+            switch (sidechainInputType)
+            {
+            case SidechainInputType::Feedforward:
+                for (size_t i = 0; i < blockSize; ++i)
+                {
+                    SampleType x = monoConverter.processFrame(buffer, i);
+                    for (size_t ch = 0; ch < numChannels; ++ch)
+                        buffer[ch][i] = std::fma(dryLin, buffer[ch][i], wetLin * processSample(x, ch));
+                }
+                break;
+            case SidechainInputType::Feedback:
+                for (size_t i = 0; i < blockSize; ++i)
+                {
+                    SampleType x = monoConverter.processFrame(_y);
+                    for (size_t ch = 0; ch < numChannels; ++ch)
+                    {
+                        _y[ch] = processSample(x, ch);
+                        buffer[ch][i] = std::fma(dryLin, buffer[ch][i], wetLin * _y[ch]);
+                    }
+                }
+                break;
+            default: //SidechainInputType::External:
+                break;
+            }
+        }
+        else //stereoLink == false
+        {
+            switch (sidechainInputType)
+            {
+            case SidechainInputType::Feedforward:
+                for (size_t i = 0; i < blockSize; ++i)
+                {
+                    for (size_t ch = 0; ch < numChannels; ++ch)
+                        buffer[ch][i] = std::fma(dryLin, buffer[ch][i], wetLin * processSample(buffer[ch][i], ch));
+                }
+                break;
+            case SidechainInputType::Feedback:
+                for (size_t i = 0; i < blockSize; ++i)
+                {
+                    SampleType x = monoConverter.processFrame(_y);
+                    for (size_t ch = 0; ch < numChannels; ++ch)
+                    {
+                        _y[ch] = processSample(_y[ch], ch);
+                        buffer[ch][i] = std::fma(dryLin, buffer[ch][i], wetLin * _y[ch]);
+                    }
+                }
+                break;
+            default: //SidechainInputType::External:
+                break;
+            }
+        }
     }
 
 private:
@@ -236,22 +224,22 @@ private:
     //parameters
     SidechainInputType sidechainInputType = SidechainInputType::Feedforward;
     std::atomic<SampleType> detectorGain = SampleType(1.0);
-    bool compressor = true;
+    std::atomic<bool> stereoLink = true;
     std::atomic<SampleType> thrLin = 1.0, exponent = 0.0;
-    std::atomic<SampleType> exponentA = SampleType(0.0), exponentR = SampleType(0.0);
+    std::atomic<SampleType> exponentP = SampleType(0.0), exponentN = SampleType(0.0);
     std::atomic<SampleType> dryLin, wetLin = 1.0;
 
 #ifdef DEBUG
-    DynamicsProcessorOutputType outputType;
+
+    std::atomic<DynamicsProcessorOutputType> outputType = DynamicsProcessorOutputType::Normal;
+
 #endif
 
-    //detector
-    Detector<SampleType> detector;
 
     //filters
-    NLMM1_Freq<SampleType> nlMM1;
-    NLBallisticsFilter<SampleType> nlBallisticsFilter;
-    NLDET<SampleType> nlDET;
+    MonoConverter<SampleType> monoConverter;
+    Detector<SampleType> detector;
+    NLEnvelopeFilter<SampleType> nlEF;
 
     //state
     std::vector<SampleType> _y{ 2 };   

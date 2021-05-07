@@ -34,7 +34,7 @@ parameters
         std::make_unique<juce::AudioParameterChoice>
         (
             "inputFilterType",
-            "Input Filter",
+            "Filter Type",
             juce::StringArray
             ({
                 "LP1",
@@ -45,7 +45,7 @@ parameters
 
         std::make_unique<juce::AudioParameterFloat>
         (
-            "inputFilterCutoff",
+            "inputCutoff",
             "Cutoff",
             juce::NormalisableRange<float>(0.f, 10000.f),
             100.f
@@ -53,14 +53,14 @@ parameters
 
         std::make_unique<juce::AudioParameterBool>
         (
-            "inputFilterFeedbackSaturation",
+            "inputFeedbackSaturation",
             "Feedback Saturation",
             false
         ),
 
         std::make_unique<juce::AudioParameterFloat>
         (
-            "inputFilterSaturation",
+            "inputSaturation",
             "Saturation",
             juce::NormalisableRange<float>(0.f, 500.f),
             0.f
@@ -127,16 +127,9 @@ parameters
             -40.f
         ),
 
-        std::make_unique<juce::AudioParameterBool>
-        (
-            "compressor",
-            "Compressor",
-            true
-        ),
-
         std::make_unique<juce::AudioParameterFloat>
         (
-            "compressorAttack",
+            "attack",
             "Attack",
             juce::NormalisableRange<float>(1.f, 100.f),
             5.f
@@ -144,7 +137,7 @@ parameters
         
         std::make_unique<juce::AudioParameterFloat>
         (
-            "compressorAttackNonlinearity",
+            "attackNonlinearity",
             "Attack Nonlinearity",
             juce::NormalisableRange<float>(0.f, 250.f),
             0.f
@@ -152,7 +145,7 @@ parameters
 
         std::make_unique<juce::AudioParameterFloat>
         (
-            "compressorRelease",
+            "release",
             "Release",
             juce::NormalisableRange<float>(1.f, 250.f),
             50.f
@@ -160,7 +153,7 @@ parameters
 
         std::make_unique<juce::AudioParameterFloat>
         (
-            "compressorReleaseNonlinearity",
+            "releaseNonlinearity",
             "Release Nonlinearity",
             juce::NormalisableRange<float>(0.f, 250.f),
             0.f
@@ -168,49 +161,26 @@ parameters
 
         std::make_unique<juce::AudioParameterFloat>
         (
-            "compressorRatio",
-            "Ratio",
+            "positiveEnvelopeRatio",
+            "Positive Envelope Ratio",
             juce::NormalisableRange<float>(1.f, 50.f),
             50.f
         ),
 
         std::make_unique<juce::AudioParameterFloat>
         (
-            "transientDesignerTau",
-            "Tau",
+
+            "negativeEnvelopeRatio",
+            "Negative Envelope Ratio",
             juce::NormalisableRange<float>(1.f, 50.f),
-            10.f
+            50.f
         ),
 
         std::make_unique<juce::AudioParameterFloat>
         (
-            "transientDesignerSensitivity",
+            "sensitivity",
             "Sensitivity",
-            juce::NormalisableRange<float>(0.f, 2.f),
-            1.f
-        ),
-
-        std::make_unique<juce::AudioParameterFloat>
-        (
-            "transientDesignerNonlinearity",
-            "Nonlinearity",
-            juce::NormalisableRange<float>(0.f, 250.f),
-            0.f
-        ),
-
-        std::make_unique<juce::AudioParameterFloat>
-        (
-            "transientDesignerAttackRatio",
-            "Attack Ratio",
-            juce::NormalisableRange<float>(0.25f, 20.f),
-            1.f
-        ),
-        
-        std::make_unique<juce::AudioParameterFloat>
-        (
-            "transientDesignerReleaseRatio",
-            "Release Ratio",
-            juce::NormalisableRange<float>(0.25f, 20.f),
+            juce::NormalisableRange<float>(0.f, 3.f),
             1.f
         ),
 
@@ -229,13 +199,16 @@ parameters
             juce::NormalisableRange<float>(-100.f, 0.f),
             -100.f
         )
-    }
+    } 
 )
 {
 }
-
 CompressorTestbenchAudioProcessor::~CompressorTestbenchAudioProcessor()
 {
+#ifdef DEBUG
+    //Gather system specs
+    DebugTools::isAtomicLockFree();
+#endif
 }
 
 //==============================================================================
@@ -303,16 +276,14 @@ void CompressorTestbenchAudioProcessor::changeProgramName (int index, const juce
 //==============================================================================
 void CompressorTestbenchAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
-#ifdef DEBUG
-    // SystemSpecs::isAtomicLockFree();
-#endif
-
     //prepare processors
+    nlMM1.prepare(sampleRate, getTotalNumInputChannels(), samplesPerBlock);
     dynamicsProcessor.prepare(sampleRate, samplesPerBlock, getTotalNumInputChannels());
 }
 
 void CompressorTestbenchAudioProcessor::releaseResources()
 {
+    nlMM1.reset();
     dynamicsProcessor.reset();
 }
 
@@ -354,6 +325,7 @@ void CompressorTestbenchAudioProcessor::processBlock (juce::AudioBuffer<float>& 
         buffer.clear(i, 0, buffer.getNumSamples());
 
     //process
+    nlMM1.process(buffer.getArrayOfWritePointers());
     dynamicsProcessor.process(buffer.getArrayOfWritePointers());
 }
 

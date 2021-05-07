@@ -1,6 +1,6 @@
 /*
   ==============================================================================
-    Linear, piecewise linear, and approximately linear filters.
+    Linear, piecewise linear, and mostly linear filters.
     
     Zhe Deng 2021
     thezhefromcenterville@gmail.com
@@ -21,7 +21,7 @@ enum class Multimode1FilterType
     Highpass
 };
 
-/** First-order Topology Preserving Transform multimode filter */
+/** First-order Topology Preserving Transform multimode filter (MM1) */
 template <typename SampleType>
 class Multimode1
 {
@@ -112,6 +112,148 @@ private:
 
 #pragma endregion
 
+#pragma region BallisticsFilter
+
+/** Ballistics Filter based on Multimode1*/
+template <typename SampleType>
+class BallisticsFilter
+{
+public:
+
+    /** Set the time in miliseconds for the step response to reach 1-1/e */
+    void setAttack(SampleType attackMs) noexcept;
+
+    /** Set the time in miliseconds for inversed step response to reach 1/e */
+    void setRelease(SampleType releaseMs) noexcept;
+
+    /** Set the processing specifications */
+    void prepare(SampleType sampleRate, size_t numInputChannels);
+
+    /** Reset the internal state */
+    void reset();
+
+    SampleType processSample(SampleType x, size_t channel) noexcept
+    {
+        //branching cutoff
+        mm1.setG(x < y ? Gr : Ga); 
+
+        //filter
+        y = mm1.processSample(x, channel);
+        return y;
+    }
+
+private:
+
+    //parameters
+    SampleType Gr = SampleType(0.5), Ga = SampleType(0.5);
+
+    //filter
+    Multimode1<SampleType> mm1;
+
+    //state
+    SampleType y;
+};
+
+#pragma endregion
+
+
+//#pragma region State Variable Filter
+//
+//enum class StateVariableFilterType
+//{
+//    Lowpass = 1,
+//    Bandpass,
+//    Highpass
+//};
+//
+///** Second-order Topology Preserving Transform state variable filter (SVF) */
+//template <typename SampleType>
+//class StateVariableFilter
+//{
+//public:
+//
+//    using FilterType = StateVariableFilterType;
+//
+//    /** Set mode to lowpass or highpass */
+//    void setFilterType(FilterType type) noexcept
+//    {
+//        filterType = type;
+//    }
+//
+//    /** Set the angular cutoff frequency
+//    *
+//    *   Note 1: This function is for programmatically modulating cutoff at audio rates.
+//    *
+//    *   Note 2: Do not use negative omega values.
+//    */
+//    void setOmega(SampleType omega) noexcept
+//    {
+//    }
+//
+//    /** Set the filter cutoff frequency in hertz
+//    *
+//    *   Note: This method doesn't perform checks. Make sure cutoff is below Nyquist before calling.
+//    */
+//    void setCutoff(SampleType cutoffHz) noexcept;
+//
+//    /** Set the quality factor */
+//    void setQuality(SampleType qualityQ) noexcept;
+//
+//    /** Reset the internal state */
+//    void reset();
+//
+//    /** Prepare the processing specifications */
+//    void prepare(SampleType sampleRate, size_t numInputChannels);
+//
+//    /** Process a sample given a channel */
+//    SampleType processSample(SampleType x, size_t channel) noexcept
+//    {
+//        SampleType& s1 = _s1[channel];
+//        SampleType& s2 = _s2[channel];
+//
+//        //filter
+//
+//
+//
+//        //filter type
+//        switch (filter)
+//        {
+//        case FilterType::Lowpass:
+//            
+//            
+//            
+//            break;
+//        case FilterType::Bandpass:
+//            break;
+//        default: //FilterType::Highpass:
+//            SampleType yHP = (x - g1 * s1 - s2) * d;
+//
+//            SampleType v1 = g * yHP;
+//            s1 += SampleType(2.0) * v1;
+//
+//            SampleType v2 = g * y;
+//        }
+//    }
+//
+//
+//private:
+//
+//    //parameters
+//    std::atomic<FilterType> filterType = FilterType::Lowpass;
+//    SampleType g1, d, g;
+//    SampleType twoG;
+//
+//    //state
+//    std::vector<SampleType> _s1{ 2 };
+//    std::vector<SampleType> _s2{ 2 };
+//
+//    //spec
+//    SampleType T_2{ 0.5 };
+//
+//};
+//
+//#pragma endregion
+
 #pragma region MonoConverter
 
 /** Multi-channel to mono converter */
@@ -119,54 +261,34 @@ template<typename SampleType>
 class MonoConverter
 {
 public:
-
-    /** Reset the internal state */
-    void reset() noexcept
-    {
-        y = 0;
-    }
-
     /** Prepare the processing specifications */
     void prepare(size_t samplesPerBlock, size_t numInputChannels);
 
     /** Process a frame given a buffer */
-    SampleType processFrame(SampleType** buffer, size_t channel, size_t frame) noexcept
+    SampleType processFrame(SampleType** buffer, size_t frame) noexcept
     {
-        //reuse mono sample
-        if (channel > 0)
-            return y;
-        
-        
-        reset();
+        SampleType y = buffer[0][frame];
 
         //sum channels
-        for (size_t ch = 0; ch < numChannels; ++ch)
+        for (size_t ch = 1; ch < numChannels; ++ch)
             y += buffer[ch][frame];
         y *= divNumChannels;
         return y;
     }
 
     /** Process a frame */
-    SampleType processFrame(std::vector <SampleType> frame, size_t channel) noexcept
+    SampleType processFrame(std::vector <SampleType>& frame) noexcept
     {
-        //reuse mono sample
-        if (channel > 0)
-            return y;
-
-        
-        reset();
+        SampleType y = frame[0];
 
         //sum channels
-        for (size_t ch = 0; ch < numChannels; ++ch)
+        for (size_t ch = 1; ch < numChannels; ++ch)
             y += frame[ch];
         y *= divNumChannels;
         return y;
     }
 
 private:
-
-    //state
-    SampleType y;
 
     //spec
     size_t numChannels{ 1 };
@@ -244,15 +366,6 @@ class Detector
 {
 public:
 
-    /** Enable or disable stereo linking
-    *
-    *   Note: Stereo linking sets all detector channels to the average value
-    */
-    void setStereoLink(bool stereoLinkEnable) noexcept
-    {
-        stereoLink = stereoLinkEnable;
-    }
-
     /** Set the pre-filter type */
     void setPreFilterType(DetectorPreFilterType type)
     {
@@ -271,22 +384,9 @@ public:
     /** Prepare the processing specifications */
     void prepare(SampleType sampleRate, size_t samplesPerBlock, size_t numInputChannels);
 
-    /** Process a sample given a buffer, channel, and frame */
-    SampleType processSample(SampleType** buffer, size_t channel, size_t frame) noexcept
-    {
-        //Stereo Link
-        SampleType x = stereoLink ? monoConverter.processFrame(buffer, channel, frame) : buffer[channel][frame];
-
-        //Pre-filter and Rectifier
-        return processRectifierInternal(processPrefilterInternal(x, channel));
-    }
-
     /** Process a sample given a frame and channel */
-    SampleType processSample(std::vector <SampleType> frame, size_t channel) noexcept
+    SampleType processSample(SampleType x, size_t channel) noexcept
     {
-        //Stereo Link
-        SampleType x = stereoLink ? monoConverter.processFrame(frame, channel) : frame[channel];
-
         //Pre-filter and Rectifier
         return processRectifierInternal(processPrefilterInternal(x, channel));
     }
@@ -312,13 +412,13 @@ private:
         switch (rectifierType)
         {
         case DetectorRectifierType::Peak:
-            return abs(x);
+            return std::abs(x);
             break;
         case DetectorRectifierType::HalfWaveRect:
-            return (exp(x)-1)/(exp(1)-1);
+            return (std::exp(x)-1)/(std::exp(1)-1);
             break;
         default: //DetectorRectifierType::FullWaveRect:
-            return x > 0 ? (exp(x) - 1) / (exp(1) - 1): (exp(-x) - 1) / (exp(1) - 1);
+            return x > 0 ? (std::exp(x) - 1) / (std::exp(1) - 1): (std::exp(-x) - 1) / (std::exp(1) - 1);
             break;
         }
     }
@@ -326,7 +426,6 @@ private:
     //parameters
     DetectorPreFilterType preFilterType = DetectorPreFilterType::None;
     DetectorRectifierType rectifierType = DetectorRectifierType::Peak;
-    bool stereoLink = false;
 
     //filter
     MonoConverter<SampleType> monoConverter;
@@ -337,3 +436,4 @@ private:
 
 //TODO LUTs and LUT sample count optimization
 //TODO detector shockley equation
+//TODO solve SVF zero delay eqn using LP or BP as variable, possible optimization?

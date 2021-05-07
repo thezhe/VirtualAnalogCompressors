@@ -24,9 +24,9 @@ enum class RLTopologyType
     Feedback
 };
 
-/** Nonlinear RL low-pass filter based on modulating cutoff model
+/** Nonlinear inductor first-order Multimode filter based on modulating cutoff model.
 *
-*   Note: Use for time domain effects. Implemented using MM1.
+*   Note: Use for time domain effects. Implemented using Multimode1.
 */
 template<typename SampleType>
 class NLMM1_Time
@@ -87,9 +87,9 @@ private:
     std::vector<SampleType> _y{ 2 };
 };
 
-/** Nonlinear RL low-pass filter based on modulating cutoff model
+/** Nonlinear inductor first-order Multimode filter based on modulating cutoff model.
 *
-*   Note: Use for frequency domain effects. Implemented using MM1.
+*   Note: Use for frequency domain effects. Implemented using Multimode1.
 */
 template<typename SampleType>
 class NLMM1_Freq
@@ -104,55 +104,75 @@ public:
     }
 
     void setLinearCutoff(SampleType cutoffHz) noexcept;
-
-    /** Set the inductor nonlinearity
-    *
-    *   Note: A good range is [0, 500] with log tapered controls
-    */
+    
+    /// <summary>
+    /// Set the inductor nonlinearity.
+    /// </summary>
+    /// <remarks>
+    /// A good range is [0, 500] with log tapered controls.
+    /// </remarks>
     void setNonlinearity(SampleType nonlinearityN) noexcept;
 
     /** Set the processing specifications */
-    void prepare(SampleType sampleRate, size_t numInputChannels);
+    void prepare(SampleType sampleRate, size_t numInputChannels, size_t samplesPerBlock);
 
     /** Reset the internal state*/
     void reset();
 
+    /// <summary>
+    /// Set the number of iterations to run on the internal Newton-Ralphson routine.
+    /// </summary>
+    /// <remarks>
+    /// Typical values are powers of 2 -- i.e., 1, 2, 4, etc.
+    /// 
+    /// </remarks>
+    void setNewtonRalphsonIterations(size_t numIterations) noexcept
+    {
+        nrIterations = numIterations;
+    }
+
     /** Process a sample given the channel */
     SampleType processSample(SampleType x, size_t channel) noexcept
     {
-        auto& s = _s1[channel];
+        SampleType& s = _s1[channel];
 
         //linear y prediction
-        auto S = s * div1plusg;
-        auto y0 = G * x + S;
-       
-        //nonlinear y prediction
-        auto y = MathFunctions<SampleType>::newtonRalphson
-        (
-            [this, y0, x, s](SampleType y)
+        SampleType S = s * div1plusg;
+        SampleType y0 = std::fma(G, x, S); //G * x + S;
+        SampleType y = y0;
+
+
+        //nonlinear y prediction (Newton-Ralphson)
+        if (y0 > 0)
+        {
+            for (size_t i = 0; i < nrIterations; ++i)
             {
-                auto gSqrt = omegaLinSqrt + N * (y0 > 0 ? y : -y);
-                auto g = T_2 * gSqrt * gSqrt;
-                return y - g * (x - y) - s;
-            },
-            [this, y0, x](SampleType y)
+                SampleType omegaSqrt = std::fma(N, y, omegaLinSqrt);
+                SampleType g = Tdiv2 * omegaSqrt * omegaSqrt;
+                SampleType f = y - g * (x - y) - s;
+                SampleType fPrime = 1 - TN * omegaSqrt * (x - y) + g;
+
+                y -= f / fPrime;
+            }
+        }
+        else
+        {
+            for (size_t i = 0; i < nrIterations; ++i)
             {
-                auto gSqrt = omegaLinSqrt + N * (y0 > 0 ? y : -y);
-                return 
-                    y0 > 0 ?
-                    1 - T * N * gSqrt * (x - y) + T_2 * gSqrt * gSqrt :
-                    1 + T * N * gSqrt * (x - y) + T_2 * gSqrt * gSqrt;
-               
-            },
-            y0, 
-            4
-        );
+                SampleType omegaSqrt = std::fma(N, -y, omegaLinSqrt);
+                SampleType g = Tdiv2 * omegaSqrt * omegaSqrt;
+                SampleType f = y - g * (x - y) - s;
+                SampleType fPrime = 1 + TN * omegaSqrt * (x - y) + g;
+
+                y -= f / fPrime;
+            }
+        }
 
         //calculate v
-        auto gSqrt = omegaLinSqrt + N * y;
-        auto g = T_2 * gSqrt * gSqrt;
+        SampleType omegaSqrt = std::fma(N, y, omegaLinSqrt); //N * y + omegaLinSqrt;
+        SampleType g = Tdiv2 * omegaSqrt * omegaSqrt;
 
-        auto v = g * (x - y);
+        SampleType v = g * (x - y);
         
         //integrate
         y = v + s;
@@ -160,11 +180,20 @@ public:
         return filterType == Multimode1FilterType::Lowpass ? y : x - y;
     }
 
+    /** Process a buffer */
+    void process(SampleType** buffer) noexcept
+    {
+        for (size_t i = 0; i < blockSize; ++i)
+            for (size_t ch = 0; ch < _s1.size(); ++ch)
+                buffer[ch][i] = processSample(buffer[ch][i], ch);
+    }
+
 private:
 
     //parameters
     RLTopologyType topologyType = RLTopologyType::Feedback;
-    std::atomic<SampleType> omegaLinSqrt, N;
+    std::atomic<SampleType> omegaLinSqrt, N, TN;
+    std::atomic<size_t> nrIterations{ 4 };
     SampleType div1plusg, G;
     FilterType filterType = FilterType::Lowpass;
 
@@ -172,10 +201,11 @@ private:
     std::vector<SampleType> _s1{ 2 };
 
     //spec
-    SampleType T_2{ 0.5 }, T{ 1 };
+    size_t blockSize;
+    SampleType Tdiv2{ 0.5 }, T{ 1 }, fs2{ 2 };
 };
 
-/** Ballistics filter using implemented using RL_Time */
+/** Ballistics filter using implemented using NLMM1_Time */
 template <typename SampleType>
 class NLBallisticsFilter
 {
@@ -226,49 +256,56 @@ private:
     std::vector<SampleType> _y{ 2 };
 };
 
-/** Differential Envelope Technology using NLMM1_Time */
-template <typename SampleType>
-class NLDET
+/** General Envelope Filter composed of NLBallisticsFilter and DET */
+template<typename SampleType>
+class NLEnvelopeFilter
 {
 public:
-    
-    void setTau(SampleType tauMs) noexcept
-    {
-        tau = tauMs;
-        envFast.setLinearTau(tauMs);
-    }
 
-    void setSensitivity(SampleType sensS) noexcept
-    {
-        envSlow.setLinearTau((SampleType(1.0) + sensS) * tau);
-    }
+    /** Set the time in miliseconds for the step response to reach 1-1/e */
+    void setAttack(SampleType attackMs) noexcept;
 
-    void setNonlinearity(SampleType nonlinearityN) noexcept
-    {
-        envFast.setNonlinearity(nonlinearityN);
-    }
+    /** Set the inductor nonlinearity during attacks */
+    void setAttackNonlinearity(SampleType nonlinearityN) noexcept;
 
-    /** Reset the internal state */
+    /** Set the time in miliseconds for inversed step response to reach 1/e */
+    void setRelease(SampleType releaseMs) noexcept;
+
+    /** Set the inductor nonlinearity during releases */
+    void setReleaseNonlinearity(SampleType nonlinearityN) noexcept;
+
+    /// <summary>
+    /// Set the sensitivity. The filter acts as a normal Ballistics Filter
+    /// (compressor) for large values and as DET for small values (transient designer).
+    /// </summary>
+    void setSensitivity(SampleType sensitivity) noexcept;
+
+    /// <summary>
+    /// Reset the internal state.
+    /// </summary>
     void reset();
 
-    /** Set the processing specifications */
+    /// <summary>
+    /// Prepare the processing specifications
+    /// </summary>
     void prepare(SampleType sampleRate, size_t numInputChannels);
 
-    /** Process a sample */
     SampleType processSample(SampleType x, size_t channel) noexcept
     {
-        return envFast.processSample(x, channel) - envSlow.processSample(x, channel);
+        return nlbfFast.processSample(x, channel) - bfSlow.processSample(x, channel);
     }
 
 private:
 
     //parameters
-    SampleType tau;
+    SampleType _attackMs, _releaseMs;
+    SampleType sensitivityRatio;
 
     //filters
-    NLMM1_Time<SampleType> envFast, envSlow;
+    NLBallisticsFilter<SampleType> nlbfFast;
+    BallisticsFilter<SampleType> bfSlow;
 };
 
-//TODO RL_Frequency, Hysteresis 
+//TODO Hysteresis 
 //TODO FF NLMM1_Freq and Time
 

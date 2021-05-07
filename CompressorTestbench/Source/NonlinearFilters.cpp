@@ -31,7 +31,7 @@ template<typename SampleType>
 void NLMM1_Time<SampleType>::prepare(SampleType sampleRate, size_t numInputChannels)
 {
     mm1.prepare(sampleRate, numInputChannels);
-    omegaLimit = sampleRate * MathConstants<SampleType>::pi * SampleType(0.499);
+    omegaLimit = sampleRate * std::numbers::pi_v<SampleType> * SampleType(0.499);
 
     _y.resize(numInputChannels);
     std::fill(_y.begin(), _y.end(), SampleType(0.0));
@@ -88,36 +88,72 @@ template class NLBallisticsFilter<double>;
 
 #pragma endregion
 
-#pragma region NLDET
+#pragma region NLEnvelopeFilter
 
 template<typename SampleType>
-void NLDET<SampleType>::reset()
+void NLEnvelopeFilter<SampleType>::setAttack(SampleType attackMs) noexcept
 {
-    envFast.reset();
-    envSlow.reset();
+    nlbfFast.setAttack(attackMs);
+    bfSlow.setAttack(sensitivityRatio * attackMs);
+    _attackMs = attackMs;
 }
 
 template<typename SampleType>
-void NLDET<SampleType>::prepare(SampleType sampleRate, size_t numInputChannels)
+void NLEnvelopeFilter<SampleType>::setAttackNonlinearity(SampleType nonlinearityN) noexcept
 {
-    envFast.prepare(sampleRate, numInputChannels);
-    envSlow.prepare(sampleRate, numInputChannels);
+    nlbfFast.setAttackNonlinearity(nonlinearityN);
 }
 
-template class NLDET<float>;
-template class NLDET<double>;
+template<typename SampleType>
+void NLEnvelopeFilter<SampleType>::setRelease(SampleType releaseMs) noexcept
+{
+    nlbfFast.setRelease(releaseMs);
+    bfSlow.setRelease(sensitivityRatio * releaseMs);
+    _releaseMs = releaseMs;
+}
+
+template<typename SampleType>
+void NLEnvelopeFilter<SampleType>::setReleaseNonlinearity(SampleType nonlinearityN) noexcept
+{
+    nlbfFast.setReleaseNonlinearity(nonlinearityN);
+}
+
+template<typename SampleType>
+void NLEnvelopeFilter<SampleType>::setSensitivity(SampleType sensitivity) noexcept
+{
+    sensitivityRatio = SampleType(1.0) + sensitivity;
+    bfSlow.setAttack(sensitivityRatio * _attackMs);
+    bfSlow.setAttack(sensitivityRatio * _releaseMs);
+}
+
+template<typename SampleType>
+void NLEnvelopeFilter<SampleType>::reset()
+{
+    nlbfFast.reset();
+    bfSlow.reset();
+}
+
+template<typename SampleType>
+void NLEnvelopeFilter<SampleType>::prepare(SampleType sampleRate, size_t numInputChannels)
+{
+    nlbfFast.prepare(sampleRate, numInputChannels);
+    bfSlow.prepare(sampleRate, numInputChannels);
+}
+
+template class NLEnvelopeFilter<float>;
+template class NLEnvelopeFilter<double>;
 
 #pragma endregion
-
 
 #pragma region NLMM1_Freq
 
 template<typename SampleType>
 void NLMM1_Freq<SampleType>::setLinearCutoff(SampleType cutoffHz) noexcept
 {
-    auto omegaLin = MathConstants<SampleType>::pi2 * cutoffHz;
-    omegaLinSqrt = sqrt(omegaLin);
-    auto g = omegaLin * T_2;
+    SampleType omegaLin = MathFunctions<SampleType>::preWarp(MathConstants<SampleType>::pi2 * cutoffHz, fs2, Tdiv2);
+    omegaLinSqrt = std::sqrt(omegaLin);
+
+    SampleType g = omegaLin * Tdiv2;
     div1plusg = SampleType(1.0) / (SampleType(1.0) + g);
     G = g / (1 + g);
 }
@@ -126,6 +162,7 @@ template<typename SampleType>
 void NLMM1_Freq<SampleType>::setNonlinearity(SampleType nonlinearityN) noexcept
 {
     N = nonlinearityN;
+    TN = T * N;
 }
 
 template<typename SampleType>
@@ -135,12 +172,15 @@ void NLMM1_Freq<SampleType>::reset()
 }
 
 template<typename SampleType>
-void NLMM1_Freq<SampleType>::prepare(SampleType sampleRate, size_t numInputChannels)
+void NLMM1_Freq<SampleType>::prepare(SampleType sampleRate, size_t numInputChannels, size_t samplesPerBlock)
 {
     T = SampleType(1.0) / sampleRate;
-    T_2 = T / SampleType(2.0);
+    Tdiv2 = SampleType(0.5) / sampleRate;
+    fs2 = SampleType(2.0) * sampleRate;
 
     _s1.resize(numInputChannels);
+
+    blockSize = samplesPerBlock;
 
     reset();
 }

@@ -41,16 +41,13 @@ private:
     //APVTS reference
     juce::AudioProcessorValueTreeState& valueTreeState;
 
-    //Title
-    juce::Label titleLabel;
+    //Saturation Section
+    juce::Label saturationSectionLabel;
 
-    //Input Section
-    juce::Label inputSectionLabel;
-
-    //Input Filter 
-    juce::Label inputFilterLabel;
-    juce::ComboBox inputFilterComboBox;
-    std::unique_ptr<ComboBoxAttachment> inputFilterAttachment;
+    //Filter Type 
+    juce::Label filterTypeLabel;
+    juce::ComboBox filterTypeComboBox;
+    std::unique_ptr<ComboBoxAttachment> filterTypeAttachment;
 
     //Cutoff
     juce::Label cutoffLabel;
@@ -67,8 +64,8 @@ private:
     juce::Slider saturationSlider;
     std::unique_ptr<SliderAttachment> saturationAttachment;
 
-    //Sidechain Section
-    juce::Label sidechainSectionLabel;
+    //Dynamics Section
+    juce::Label dynamicsSectionLabel;
 
     //Sidechain Input
     juce::Label sidechainInputLabel;
@@ -100,13 +97,15 @@ private:
     juce::Slider thresholdSlider;
     std::unique_ptr<SliderAttachment> thresholdAttachment;
 
-    //Compressor
-    juce::Label compressorLabel;
-    juce::ToggleButton compressorButton;
-    std::unique_ptr<ButtonAttachment> compressorAttachment;
+    //Positive Envelope Ratio
+    juce::Label positiveEnvelopeRatioLabel;
+    juce::Slider positiveEnvelopeRatioSlider;
+    std::unique_ptr<SliderAttachment> positiveEnvelopeRatioAttachment;
 
-    //Compressor Section
-    juce::Label compressorSectionLabel;
+    //Positive Envelope Ratio
+    juce::Label negativeEnvelopeRatioLabel;
+    juce::Slider negativeEnvelopeRatioSlider;
+    std::unique_ptr<SliderAttachment> negativeEnvelopeRatioAttachment;
 
     //Attack
     juce::Label attackLabel;
@@ -128,48 +127,10 @@ private:
     juce::Slider releaseNonlinearitySlider;
     std::unique_ptr<SliderAttachment> releaseNonlinearityAttachment;
 
-    //Ratio
-    juce::Label ratioLabel;
-    juce::Slider ratioSlider;
-    std::unique_ptr<SliderAttachment> ratioAttachment;
-
-    //Transient Designer Section
-    juce::Label transientDesignerSectionLabel;
-
-    //Tau
-    juce::Label tauLabel;
-    juce::Slider tauSlider;
-    std::unique_ptr<SliderAttachment> tauAttachment;
-
     //Sensitivity
     juce::Label sensitivityLabel;
     juce::Slider sensitivitySlider;
     std::unique_ptr<SliderAttachment> sensitivityAttachment;
-
-    //Nonlinearity
-    juce::Label nonlinearityLabel;
-    juce::Slider nonlinearitySlider;
-    std::unique_ptr<SliderAttachment> nonlinearityAttachment;
-
-    //Attack Ratio
-    juce::Label attackRatioLabel;
-    juce::Slider attackRatioSlider;
-    std::unique_ptr<SliderAttachment> attackRatioAttachment;
-
-    //Release Ratio
-    juce::Label releaseRatioLabel;
-    juce::Slider releaseRatioSlider;
-    std::unique_ptr<SliderAttachment> releaseRatioAttachment;
-
-    //Output Section
-    juce::Label outputSectionLabel;
-
-#ifdef DEBUG
-    //Output
-    juce::Label outputLabel;
-    juce::ComboBox outputComboBox;
-    std::unique_ptr<ComboBoxAttachment> outputAttachment;
-#endif
 
     //Wet
     juce::Label wetLabel;
@@ -180,6 +141,18 @@ private:
     juce::Label dryLabel;
     juce::Slider drySlider;
     std::unique_ptr<SliderAttachment> dryAttachment;
+
+
+#ifdef DEBUG
+    
+    //Debug Only Section
+    juce::Label debugOnlySectionLabel;
+
+    //Output
+    juce::Label outputLabel;
+    juce::ComboBox outputComboBox;
+
+#endif
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(CompressorTestbenchAudioProcessorEditor)
 };

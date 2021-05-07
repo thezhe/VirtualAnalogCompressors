@@ -14,9 +14,8 @@
 #include "Dynamics.h"
 
 #ifdef DEBUG
-//#include "DebugTools.h"
+#include "DebugTools.h"
 #endif
-
 
 //==============================================================================
 /**
@@ -67,6 +66,7 @@ public:
 
     //Processors
     DynamicsProcessor<float> dynamicsProcessor;
+    NLMM1_Freq<float> nlMM1;
 
 private:
 

@@ -47,10 +47,40 @@ void Multimode1<SampleType>::prepare(SampleType sampleRate, size_t numInputChann
     reset();
 }
 
-// "How can I avoid linker errors with my template classes?" 
-//https://isocpp.org/wiki/faq/templates#separate-template-fn-defn-from-decl
 template class Multimode1 <float>;
 template class Multimode1 <double>;
+
+#pragma endregion
+
+#pragma region BallisticsFilter
+
+template<typename SampleType>
+void BallisticsFilter<SampleType>::setAttack(SampleType attackMs) noexcept
+{
+    Ga = mm1.tauToG(attackMs);
+}
+
+template<typename SampleType>
+void BallisticsFilter<SampleType>::setRelease(SampleType releaseMs) noexcept
+{
+    Gr = mm1.tauToG(releaseMs);
+}
+
+template<typename SampleType>
+void BallisticsFilter<SampleType>::reset()
+{
+    mm1.reset();
+}
+
+
+template<typename SampleType>
+void BallisticsFilter<SampleType>::prepare(SampleType sampleRate, size_t numInputChannels)
+{
+    mm1.prepare(sampleRate, numInputChannels);
+}
+
+template class BallisticsFilter<float>;
+template class BallisticsFilter<float>;
 
 #pragma endregion
 
@@ -88,7 +118,7 @@ void KFilter<SampleType>::prepare(SampleType sampleRate, size_t numInputChannels
     SampleType fc = 1681.97;
     
     //Prewarped angular cutoff
-    SampleType g = tan(MathConstants<SampleType>::pi * fc / sampleRate);
+    SampleType g = tan(std::numbers::pi_v<SampleType> * fc / sampleRate);
     SampleType gSq = g * g;
 
     //Calculate Coefficients
