@@ -35,10 +35,8 @@ private:
     const int sliderDY = 20;
     const int sliderHeight = 20;
 
-    //processor reference
+    //references
     CompressorTestbenchAudioProcessor& audioProcessor;
-
-    //APVTS reference
     juce::AudioProcessorValueTreeState& valueTreeState;
 
     //Saturation Section
@@ -156,3 +154,6 @@ private:
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(CompressorTestbenchAudioProcessorEditor)
 };
+
+//TODO make -60dB dry -infdB internally
+//TODO CTF animation: https://docs.juce.com/master/tutorial_animation.html

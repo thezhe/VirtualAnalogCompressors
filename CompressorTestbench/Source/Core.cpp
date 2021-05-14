@@ -10,15 +10,18 @@
 
 #include "Core.h"
 
+namespace VA
+{
+
 template<typename FloatType>
-consteval void LookupTable<FloatType>::prepare(const std::function<FloatType(FloatType)> f, FloatType a, FloatType b, size_t n)
+constexpr void LookupTable<FloatType>::prepare(const std::function<FloatType(FloatType)> f, FloatType a, FloatType b, size_t n)
 {
     //spec
     _a = a;
     _b = b;
     divbma = FloatType(1.0) / (_b - _a);
     adivamb = _a / (_a - _b);
-    maxIdx = n - 1;
+    maxIdx = n - size_t(1);
 
     //internal lookup table
     fLUT.resize(n);
@@ -30,3 +33,5 @@ consteval void LookupTable<FloatType>::prepare(const std::function<FloatType(Flo
 //https://isocpp.org/wiki/faq/templates#separate-template-fn-defn-from-decl
 template class LookupTable<float>;
 template class LookupTable<double>;
+
+} // namespace VA

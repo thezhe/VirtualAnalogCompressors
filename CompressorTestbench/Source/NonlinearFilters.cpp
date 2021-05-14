@@ -1,17 +1,19 @@
 /*
-  ==============================================================================
-    Nonlinear filters derived from linear filters.
+==============================================================================
+Nonlinear filters derived from linear filters.
 
-    Zhe Deng 2020
-    thezhefromcenterville@gmail.com
+Zhe Deng 2020
+thezhefromcenterville@gmail.com
 
-    This file is part of CompressorTestBench which is released under the MIT license.
-    See file LICENSE or go to https://github.com/thezhe/VirtualAnalogCompressors for full license details.
-  ==============================================================================
+This file is part of CompressorTestBench which is released under the MIT license.
+See file LICENSE or go to https://github.com/thezhe/VirtualAnalogCompressors for full license details.
+==============================================================================
 */
 
-
 #include "NonlinearFilters.h"
+
+namespace VA
+{
 
 #pragma region NLMM1_Time
 
@@ -31,7 +33,7 @@ template<typename SampleType>
 void NLMM1_Time<SampleType>::prepare(SampleType sampleRate, size_t numInputChannels)
 {
     mm1.prepare(sampleRate, numInputChannels);
-    omegaLimit = sampleRate * std::numbers::pi_v<SampleType> * SampleType(0.499);
+    omegaLimit = sampleRate * VA::MathConstants<SampleType>::pi *SampleType(0.499);
 
     _y.resize(numInputChannels);
     std::fill(_y.begin(), _y.end(), SampleType(0.0));
@@ -122,7 +124,7 @@ template<typename SampleType>
 void NLEnvelopeFilter<SampleType>::setSensitivity(SampleType sensitivity) noexcept
 {
     sensitivityRatio = SampleType(1.0) + sensitivity;
-    bfSlow.setAttack(sensitivityRatio * _attackMs);
+    nlbfFast.setAttack(sensitivityRatio * _attackMs);
     bfSlow.setAttack(sensitivityRatio * _releaseMs);
 }
 
@@ -145,6 +147,31 @@ template class NLEnvelopeFilter<double>;
 
 #pragma endregion
 
+#pragma region Hysteresis_Time
+
+template<typename SampleType>
+void Hysteresis_Time<SampleType>::reset()
+{
+    D1.reset();
+    I1.reset();
+
+    std::fill(_x1.begin(), _x1.end(), SampleType(0.0));
+    
+}
+
+template<typename SampleType>
+void Hysteresis_Time<SampleType>::prepare(SampleType sampleRate, size_t numInputChannels)
+{
+    Tdiv2 = SampleType(0.5) / sampleRate;
+    _x1.resize(numInputChannels);
+}
+
+template class Hysteresis_Time<float>;
+template class Hysteresis_Time<double>;
+
+#pragma endregion
+
+
 #pragma region NLMM1_Freq
 
 template<typename SampleType>
@@ -155,7 +182,7 @@ void NLMM1_Freq<SampleType>::setLinearCutoff(SampleType cutoffHz) noexcept
 
     SampleType g = omegaLin * Tdiv2;
     div1plusg = SampleType(1.0) / (SampleType(1.0) + g);
-    G = g / (1 + g);
+    Glin = g / (1 + g);
 }
 
 template<typename SampleType>
@@ -168,7 +195,7 @@ void NLMM1_Freq<SampleType>::setNonlinearity(SampleType nonlinearityN) noexcept
 template<typename SampleType>
 void NLMM1_Freq<SampleType>::reset()
 {
-    std::fill(_s1.begin(), _s1.end(), SampleType(0.0));
+    I1.reset();
 }
 
 template<typename SampleType>
@@ -178,7 +205,7 @@ void NLMM1_Freq<SampleType>::prepare(SampleType sampleRate, size_t numInputChann
     Tdiv2 = SampleType(0.5) / sampleRate;
     fs2 = SampleType(2.0) * sampleRate;
 
-    _s1.resize(numInputChannels);
+    I1.prepare(numInputChannels);
 
     blockSize = samplesPerBlock;
 
@@ -190,3 +217,4 @@ template class NLMM1_Freq<double>;
 
 #pragma endregion
 
+} // namespace VA

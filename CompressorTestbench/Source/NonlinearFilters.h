@@ -1,16 +1,19 @@
 /*
-  ==============================================================================
-    Zhe Deng 2020
-    thezhefromcenterville@gmail.com
+==============================================================================
+Zhe Deng 2020
+thezhefromcenterville@gmail.com
 
-    This file is part of CompressorTestBench which is released under the MIT license.
-    See file LICENSE or go to https://github.com/thezhe/VirtualAnalogCompressors for full license details.
-  ==============================================================================
+This file is part of CompressorTestBench which is released under the MIT license.
+See file LICENSE or go to https://github.com/thezhe/VirtualAnalogCompressors for full license details.
+==============================================================================
 */
 
 #pragma once
 
 #include "Filters.h"
+
+namespace VA
+{
 
 enum class RLModelType
 {
@@ -20,7 +23,7 @@ enum class RLModelType
 
 enum class RLTopologyType
 {
-    Feedforward  = 1,
+    Feedforward = 1,
     Feedback
 };
 
@@ -51,7 +54,7 @@ public:
     void prepare(SampleType sampleRate, size_t numInputChannels);
 
     /** Reset the internal state*/
-    void reset() 
+    void reset()
     {
         mm1.reset();
         std::fill(_y.begin(), _y.end(), SampleType(0.0));
@@ -103,8 +106,13 @@ public:
         filterType = type;
     }
 
+    void setFeedbackSaturation(bool enable) noexcept
+    {
+        feedbackSaturation = enable;
+    }
+
     void setLinearCutoff(SampleType cutoffHz) noexcept;
-    
+
     /// <summary>
     /// Set the inductor nonlinearity.
     /// </summary>
@@ -120,11 +128,10 @@ public:
     void reset();
 
     /// <summary>
-    /// Set the number of iterations to run on the internal Newton-Ralphson routine.
+    /// Set the number of iterations in the nonlinear zero-delay feedback solver.
     /// </summary>
     /// <remarks>
     /// Typical values are powers of 2 -- i.e., 1, 2, 4, etc.
-    /// 
     /// </remarks>
     void setNewtonRalphsonIterations(size_t numIterations) noexcept
     {
@@ -134,49 +141,49 @@ public:
     /** Process a sample given the channel */
     SampleType processSample(SampleType x, size_t channel) noexcept
     {
-        SampleType& s = _s1[channel];
+        SampleType s = I1.getState(channel);
 
-        //linear y prediction
-        SampleType S = s * div1plusg;
-        SampleType y0 = std::fma(G, x, S); //G * x + S;
-        SampleType y = y0;
-
-
-        //nonlinear y prediction (Newton-Ralphson)
-        if (y0 > 0)
+        //find v
+        SampleType v;
+        if (feedbackSaturation)
         {
+            //linear y prediction
+            SampleType S = s * div1plusg;
+            SampleType y0 = std::fma(Glin, x, S); //G * x + S;
+            SampleType y = y0;
+
+            //nonlinear y prediction (Newton-Ralphson)
             for (size_t i = 0; i < nrIterations; ++i)
             {
-                SampleType omegaSqrt = std::fma(N, y, omegaLinSqrt);
+                //inverse froelich kennelly
+                SampleType omegaSqrt = std::fma(N, y0 > 0 ? y : -y, omegaLinSqrt);
                 SampleType g = Tdiv2 * omegaSqrt * omegaSqrt;
+
+                //f(x)
                 SampleType f = y - g * (x - y) - s;
-                SampleType fPrime = 1 - TN * omegaSqrt * (x - y) + g;
+
+                //df(x)/dx
+                SampleType fPrime = 1 + (y0 > 0 ? SampleType(-1.0) : SampleType(1.0)) * TN * omegaSqrt * (x - y) + g;
 
                 y -= f / fPrime;
             }
+            
+            //calculate v
+            SampleType g = Tdiv2 * MathFunctions<SampleType>::invFroelichKennelly(y, omegaLinSqrt, N);
+            v = g * (x - y);
         }
-        else
-        {
-            for (size_t i = 0; i < nrIterations; ++i)
-            {
-                SampleType omegaSqrt = std::fma(N, -y, omegaLinSqrt);
-                SampleType g = Tdiv2 * omegaSqrt * omegaSqrt;
-                SampleType f = y - g * (x - y) - s;
-                SampleType fPrime = 1 + TN * omegaSqrt * (x - y) + g;
-
-                y -= f / fPrime;
-            }
+        else //feedbackSaturation == false
+        { 
+            //calculate v
+            SampleType g = Tdiv2 * MathFunctions<SampleType>::invFroelichKennelly(x, omegaLinSqrt, N);
+            SampleType G = g / (SampleType(1.0) + g);
+            v = (x - s) * G;
         }
 
-        //calculate v
-        SampleType omegaSqrt = std::fma(N, y, omegaLinSqrt); //N * y + omegaLinSqrt;
-        SampleType g = Tdiv2 * omegaSqrt * omegaSqrt;
-
-        SampleType v = g * (x - y);
-        
         //integrate
-        y = v + s;
-        s = y + v;
+        SampleType y = I1.processSample(v, channel);
+
+        //output
         return filterType == Multimode1FilterType::Lowpass ? y : x - y;
     }
 
@@ -184,7 +191,7 @@ public:
     void process(SampleType** buffer) noexcept
     {
         for (size_t i = 0; i < blockSize; ++i)
-            for (size_t ch = 0; ch < _s1.size(); ++ch)
+            for (size_t ch = 0; ch < I1.getNumChannels(); ++ch)
                 buffer[ch][i] = processSample(buffer[ch][i], ch);
     }
 
@@ -194,11 +201,12 @@ private:
     RLTopologyType topologyType = RLTopologyType::Feedback;
     std::atomic<SampleType> omegaLinSqrt, N, TN;
     std::atomic<size_t> nrIterations{ 4 };
-    SampleType div1plusg, G;
-    FilterType filterType = FilterType::Lowpass;
+    SampleType div1plusg, Glin;
+    std::atomic<FilterType> filterType = FilterType::Lowpass;
+    std::atomic<bool> feedbackSaturation = true;
 
-    //state
-    std::vector<SampleType> _s1{ 2 };
+    //filter
+    Integrator<SampleType> I1;
 
     //spec
     size_t blockSize;
@@ -306,6 +314,140 @@ private:
     BallisticsFilter<SampleType> bfSlow;
 };
 
+/// <summary>
+/// A system which generates hysteresis loops using the Jiles-Aetherton model
+/// </summary>
+/// <remarks>
+/// Based on: https://jatinchowdhury18.medium.com/complex-nonlinearities-episode-3-hysteresis-fdeb2cd3e3f6
+/// Implementation is optimized for time domain stability and accuracy. TPT and unit delay in feedback loops
+/// </remarks>
+template<typename SampleType>
+class Hysteresis_Time
+{
+public:
+    
+    /// <summary>
+   /// Reset the internal state.
+   /// </summary>
+    void reset();
+
+    /// <summary>
+    /// Prepare the processing specifications
+    /// </summary>
+    void prepare(SampleType sampleRate, size_t numInputChannels);
+
+    /// <summary>
+    /// Set the 'drive' (a)
+    /// </summary>
+    /// <param name="value"></param>
+    /// <returns></returns>
+    void seta(SampleType value) noexcept
+    {
+        a = value;
+        cSdiva = c * S / a;
+   //     alphacSdiva = alpha * c * S / a;
+    }
+
+    /// <summary>
+    /// Set the 'saturation' (S)
+    /// </summary>
+    /// <param name="value"></param>
+    /// <returns></returns>
+    void setS(SampleType value) noexcept
+    {
+        S = value;
+        cSdiva = c * S / a;
+    //    alphacSdiva = alpha * c * S / a;
+    }
+
+    /// <summary>
+    /// Set the hysteresis loop width (c)
+    /// </summary>
+    /// <param name="value"></param>
+    /// <returns></returns>
+    void setc(SampleType value) noexcept
+    {
+        c = value;
+
+        onemc = 1 - c;
+        cSdiva = c * S / a;
+     //   alphacSdiva = alpha * c * S / a;
+    }
+
+    /// <summary>
+    /// Process a sample given the channel.
+    /// </summary>
+    SampleType processSample(SampleType x, size_t channel) noexcept
+    {
+        SampleType y = I1.getPrevOutput(channel); //y[n-1]
+        
+        //find Q
+        SampleType Q = (x + y) / a;
+
+        //find deltax
+        SampleType deltax = getDeltax(x, channel);
+
+        //find L(Q)
+        SampleType L = MathFunctions<SampleType>::L(Q);
+        
+        //find deltay
+        SampleType deltay = ~(std::signbit(deltax) ^ std::signbit(L - y));
+
+        //find SL(Q)-y
+        SampleType SLmy = S * L - y;
+
+        //find (cS/a)L'(Q)
+        SampleType dLcSdiva = MathFunctions<SampleType>::dL(Q) * cSdiva;
+        
+        //find dx
+        SampleType dx = D1.processSample(x, channel);
+
+        //find integrator input
+        SampleType num = ((onemc * deltay * SLmy) / (onemc * deltax * k - alpha * SLmy) + dLcSdiva) * dx;
+        SampleType denom = 1 - alpha * dLcSdiva;
+        SampleType v = Tdiv2 * num / denom;
+
+        //integrate
+        return I1.processSample(v, channel);
+    }
+
+private:
+
+    //helper functions
+    SampleType getDeltax(SampleType x, size_t channel) noexcept
+    {
+        SampleType& x1 = _x1[channel];
+
+        SampleType y = x > x1 ? SampleType(1.0) : SampleType(-1.0);
+        x1 = x;
+        return y;
+    }
+
+    //parameters
+    std::atomic<SampleType> onemc, S, cSdiva, a, c;
+
+    //constants
+    //Source: https://github.com/jatinchowdhury18/ComplexNonlinearities/blob/master/Hysteresis/Plugin/Source/HysteresisProcessing.h
+    const SampleType alpha{ 1.6e-3 }, k{ 0.47875 };
+
+    //filters
+    Differentiator<SampleType> D1;
+    Integrator<SampleType> I1;
+
+    //state
+    std::vector<SampleType> _x1{ 2 }; //x[n-1]
+
+    //spec
+    SampleType Tdiv2{ 0.5 };
+};
+
+
+
+
+} // namespace VA
+
+
+//TODO set a, c, and S need mutex?
 //TODO Hysteresis 
 //TODO FF NLMM1_Freq and Time
 

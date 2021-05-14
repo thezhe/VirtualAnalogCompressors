@@ -9,13 +9,8 @@
 */
 
 #pragma once
-
 #include <JuceHeader.h>
 #include "Dynamics.h"
-
-#ifdef DEBUG
-#include "DebugTools.h"
-#endif
 
 //==============================================================================
 /**
@@ -65,8 +60,8 @@ public:
     //==============================================================================
 
     //Processors
-    DynamicsProcessor<float> dynamicsProcessor;
-    NLMM1_Freq<float> nlMM1;
+    VA::DynamicsProcessor<float> dynamicsProcessor;
+    VA::NLMM1_Freq<float> nlMM1;
 
 private:
 

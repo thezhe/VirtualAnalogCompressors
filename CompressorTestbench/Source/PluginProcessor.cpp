@@ -11,6 +11,10 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 
+#ifdef DEBUG
+//#include "DebugTools.h"
+#endif
+
 //==============================================================================
 CompressorTestbenchAudioProcessor::CompressorTestbenchAudioProcessor()
 #ifndef JucePlugin_PreferredChannelConfigurations
@@ -29,7 +33,7 @@ parameters
 (
     *this, 
     nullptr, 
-    juce::Identifier("Dynamcis"),
+    juce::Identifier("Dynamics"),
     {
         std::make_unique<juce::AudioParameterChoice>
         (
@@ -40,7 +44,7 @@ parameters
                 "LP1",
                 "HP1"
             }),
-            0
+            1
         ),
 
         std::make_unique<juce::AudioParameterFloat>
@@ -48,7 +52,7 @@ parameters
             "inputCutoff",
             "Cutoff",
             juce::NormalisableRange<float>(0.f, 10000.f),
-            100.f
+            0.f
         ),
 
         std::make_unique<juce::AudioParameterBool>
@@ -62,7 +66,7 @@ parameters
         (
             "inputSaturation",
             "Saturation",
-            juce::NormalisableRange<float>(0.f, 500.f),
+            juce::NormalisableRange<float>(0.f, 2000.f),
             0.f
         ),
 
@@ -129,6 +133,23 @@ parameters
 
         std::make_unique<juce::AudioParameterFloat>
         (
+            "positiveEnvelopeRatio",
+            "Positive Envelope Ratio",
+            juce::NormalisableRange<float>(0.5f, 25.f),
+            1.f
+        ),
+
+        std::make_unique<juce::AudioParameterFloat>
+        (
+
+            "negativeEnvelopeRatio",
+            "Negative Envelope Ratio",
+            juce::NormalisableRange<float>(0.5f, 25.f),
+            1.f
+        ),
+
+        std::make_unique<juce::AudioParameterFloat>
+        (
             "attack",
             "Attack",
             juce::NormalisableRange<float>(1.f, 100.f),
@@ -161,26 +182,9 @@ parameters
 
         std::make_unique<juce::AudioParameterFloat>
         (
-            "positiveEnvelopeRatio",
-            "Positive Envelope Ratio",
-            juce::NormalisableRange<float>(1.f, 50.f),
-            50.f
-        ),
-
-        std::make_unique<juce::AudioParameterFloat>
-        (
-
-            "negativeEnvelopeRatio",
-            "Negative Envelope Ratio",
-            juce::NormalisableRange<float>(1.f, 50.f),
-            50.f
-        ),
-
-        std::make_unique<juce::AudioParameterFloat>
-        (
             "sensitivity",
             "Sensitivity",
-            juce::NormalisableRange<float>(0.f, 3.f),
+            juce::NormalisableRange<float>(0.f, 5.f),
             1.f
         ),
 
@@ -207,7 +211,7 @@ CompressorTestbenchAudioProcessor::~CompressorTestbenchAudioProcessor()
 {
 #ifdef DEBUG
     //Gather system specs
-    DebugTools::isAtomicLockFree();
+    //DebugTools::isAtomicLockFree();
 #endif
 }
 
@@ -274,7 +278,7 @@ void CompressorTestbenchAudioProcessor::changeProgramName (int index, const juce
 }
 
 //==============================================================================
-void CompressorTestbenchAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
+void CompressorTestbenchAudioProcessor::prepareToPlay(double sampleRate, int samplesPerBlock)
 {
     //prepare processors
     nlMM1.prepare(sampleRate, getTotalNumInputChannels(), samplesPerBlock);
@@ -283,6 +287,7 @@ void CompressorTestbenchAudioProcessor::prepareToPlay (double sampleRate, int sa
 
 void CompressorTestbenchAudioProcessor::releaseResources()
 {
+    //reset processors
     nlMM1.reset();
     dynamicsProcessor.reset();
 }
@@ -325,8 +330,10 @@ void CompressorTestbenchAudioProcessor::processBlock (juce::AudioBuffer<float>& 
         buffer.clear(i, 0, buffer.getNumSamples());
 
     //process
-    nlMM1.process(buffer.getArrayOfWritePointers());
-    dynamicsProcessor.process(buffer.getArrayOfWritePointers());
+    auto** buf = buffer.getArrayOfWritePointers();
+
+    nlMM1.process(buf);
+    dynamicsProcessor.process(buf);
 }
 
 //==============================================================================

@@ -20,13 +20,13 @@ CompressorTestbenchAudioProcessorEditor::CompressorTestbenchAudioProcessorEditor
     addAndMakeVisible(saturationSectionLabel);
 
     //Input Filter
-    filterTypeComboBox.addItem("LP1", 1);
-    filterTypeComboBox.addItem("HP1", 2);
+    filterTypeComboBox.addItem("LP1", int(VA::Multimode1FilterType::Lowpass));
+    filterTypeComboBox.addItem("HP1", int(VA::Multimode1FilterType::Highpass));
     filterTypeComboBox.onChange = [this]
     {
         audioProcessor.nlMM1.setFilterType
         (
-            Multimode1FilterType(filterTypeComboBox.getSelectedId())
+            VA::Multimode1FilterType(filterTypeComboBox.getSelectedId())
         );
     };
     addAndMakeVisible(filterTypeComboBox);
@@ -54,7 +54,7 @@ CompressorTestbenchAudioProcessorEditor::CompressorTestbenchAudioProcessorEditor
     //Feedback Saturation
     feedbackSaturationButton.onStateChange = [this]
     {
-        //audioProcessor.dynamicsProcessor.setInputFilterFeedbackSaturation(feedbackSaturationButton.getToggleState());
+        audioProcessor.nlMM1.setFeedbackSaturation(feedbackSaturationButton.getToggleState());
     };
     addAndMakeVisible(feedbackSaturationButton);
 
@@ -89,7 +89,7 @@ CompressorTestbenchAudioProcessorEditor::CompressorTestbenchAudioProcessorEditor
     {
         audioProcessor.dynamicsProcessor.setSidechainInputType
         (
-            DynamicsProcessorSidechainInputType(sidechainInputComboBox.getSelectedId())
+            VA::DynamicsProcessorSidechainInputType(sidechainInputComboBox.getSelectedId())
         );
     };
     addAndMakeVisible(sidechainInputComboBox);
@@ -118,7 +118,7 @@ CompressorTestbenchAudioProcessorEditor::CompressorTestbenchAudioProcessorEditor
     preFilterComboBox.addItem("K-Weighting", 2);
     preFilterComboBox.onChange = [this]
     {
-        audioProcessor.dynamicsProcessor.setPreFilterType(DetectorPreFilterType(preFilterComboBox.getSelectedId()));
+        audioProcessor.dynamicsProcessor.setPreFilterType(VA::DetectorPreFilterType(preFilterComboBox.getSelectedId()));
     };
     addAndMakeVisible(preFilterComboBox);
 
@@ -134,7 +134,7 @@ CompressorTestbenchAudioProcessorEditor::CompressorTestbenchAudioProcessorEditor
     rectifierComboBox.addItem("Full Wave", 3);
     rectifierComboBox.onChange = [this]
     {
-        audioProcessor.dynamicsProcessor.setRectifierType(DetectorRectifierType(rectifierComboBox.getSelectedId()));
+        audioProcessor.dynamicsProcessor.setRectifierType(VA::DetectorRectifierType(rectifierComboBox.getSelectedId()));
     };
     addAndMakeVisible(rectifierComboBox);
 
@@ -308,7 +308,7 @@ CompressorTestbenchAudioProcessorEditor::CompressorTestbenchAudioProcessorEditor
     {
         audioProcessor.dynamicsProcessor.setOutputType
         (
-            DynamicsProcessorOutputType(outputComboBox.getSelectedId())
+            VA::DynamicsProcessorOutputType(outputComboBox.getSelectedId())
         );
     };
     addAndMakeVisible(outputComboBox);
@@ -343,13 +343,13 @@ void CompressorTestbenchAudioProcessorEditor::resized()
     auto labelWidth = getWidth() / 2;
     auto labelL = (getWidth() / 2) - (labelWidth / 2);
 
-    saturationSectionLabel.setBounds(marginL, marginT, labelWidth, sliderHeight);
+    saturationSectionLabel.setBounds(labelL, marginT, labelWidth, sliderHeight);
     filterTypeComboBox.setBounds(marginL, marginT + sliderDY, sliderWidth, sliderHeight);
     cutoffSlider.setBounds(marginL, marginT + 2* sliderDY, sliderWidth, sliderHeight);
     feedbackSaturationButton.setBounds(marginL, marginT + 3 * sliderDY, sliderWidth, sliderHeight);
     saturationSlider.setBounds(marginL, marginT + 4 * sliderDY, sliderWidth, sliderHeight);
 
-    dynamicsSectionLabel.setBounds(marginL, marginT + 5 * sliderDY, labelWidth, sliderHeight);
+    dynamicsSectionLabel.setBounds(labelL, marginT + 5 * sliderDY, labelWidth, sliderHeight);
     sidechainInputComboBox.setBounds(marginL, marginT + 6 * sliderDY, sliderWidth, sliderHeight);
     stereoLinkButton.setBounds(marginL, marginT + 7 * sliderDY, sliderWidth, sliderHeight);
     preFilterComboBox.setBounds(marginL, marginT + 8 * sliderDY, sliderWidth, sliderHeight);
@@ -369,7 +369,7 @@ void CompressorTestbenchAudioProcessorEditor::resized()
 
 #ifdef DEBUG
 
-    debugOnlySectionLabel.setBounds(marginL, marginT + 21 * sliderDY, labelWidth, sliderHeight);
+    debugOnlySectionLabel.setBounds(labelL, marginT + 21 * sliderDY, labelWidth, sliderHeight);
     outputComboBox.setBounds(marginL, marginT + 22 * sliderDY, sliderWidth, sliderHeight);
 
 #endif

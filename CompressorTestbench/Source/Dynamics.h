@@ -1,18 +1,21 @@
 /*
-  ==============================================================================
-    A hybrid Transient Designer-Compressor dynamics processor with saturation.
+==============================================================================
+A hybrid Transient Designer-Compressor dynamics processor with saturation.
     
-    Zhe Deng 2020
-    thezhefromcenterville@gmail.com
+Zhe Deng 2020
+thezhefromcenterville@gmail.com
 
-    This file is part of CompressorTestBench which is released under the MIT license.
-    See file LICENSE or go to https://github.com/thezhe/VirtualAnalogCompressors for full license details.
-  ==============================================================================
+This file is part of CompressorTestBench which is released under the MIT license.
+See file LICENSE or go to https://github.com/thezhe/VirtualAnalogCompressors for full license details.
+==============================================================================
 */
 
 #pragma once
 
 #include "NonlinearFilters.h"
+
+namespace VA
+{
 
 #ifdef DEBUG
 
@@ -103,7 +106,7 @@ public:
 
     /** Set the nonlinearity of the ballistics filter during releases */
     void setReleaseNonlinearity(SampleType nonlinearityN) noexcept;
-    
+
     /** Ratio to use when the envelope is positive */
     void setPositiveEnvelopeRatio(SampleType ratioR) noexcept;
 
@@ -123,7 +126,7 @@ public:
 
     /** Prepare the processing specifications */
     void prepare(SampleType sampleRate, size_t samplesPerBlock, size_t numInputChannels);
-    
+
     /** Process a sample given the channel */
     SampleType processSample(SampleType x, size_t channel) noexcept
     {
@@ -131,10 +134,10 @@ public:
         SampleType d = detectorGain * detector.processSample(x, channel);
 
         //Smoothing
-        SampleType env = nlEF.processSample(x, channel);
+        SampleType env = nlEF.processSample(d, channel);
 
         //Transfer Function
-        SampleType tf = MathFunctions<SampleType>::ttf(x, thrLin, exponentP, exponentN);
+        SampleType tf = MathFunctions<SampleType>::ttf(env, thrLin, exponentP, exponentN);
 
 #ifdef DEBUG
 
@@ -157,7 +160,7 @@ public:
 #endif
         //Saturation
         return x * tf;
-       
+
     }
 
     /** Process a buffer */
@@ -205,7 +208,6 @@ public:
             case SidechainInputType::Feedback:
                 for (size_t i = 0; i < blockSize; ++i)
                 {
-                    SampleType x = monoConverter.processFrame(_y);
                     for (size_t ch = 0; ch < numChannels; ++ch)
                     {
                         _y[ch] = processSample(_y[ch], ch);
@@ -220,7 +222,7 @@ public:
     }
 
 private:
-    
+
     //parameters
     SidechainInputType sidechainInputType = SidechainInputType::Feedforward;
     std::atomic<SampleType> detectorGain = SampleType(1.0);
@@ -228,6 +230,8 @@ private:
     std::atomic<SampleType> thrLin = 1.0, exponent = 0.0;
     std::atomic<SampleType> exponentP = SampleType(0.0), exponentN = SampleType(0.0);
     std::atomic<SampleType> dryLin, wetLin = 1.0;
+
+
 
 #ifdef DEBUG
 
@@ -242,14 +246,17 @@ private:
     NLEnvelopeFilter<SampleType> nlEF;
 
     //state
-    std::vector<SampleType> _y{ 2 };   
+    std::vector<SampleType> _y{ 2 };
 
     //spec
-    size_t blockSize, numChannels;
+    size_t blockSize{ 512 }, numChannels{ 2 };
 };
+
+} // namespace VA
 
 //TODO sidechain support
 //TODO expansion (upwards and downwards) and compression (upwards and downwards)
 //TODO soft knee
 //TODO waveshaping transfer functions
 //TODO nonlinearityN normalize to [0,1]
+//TODO optimize stereo link to one channel internally

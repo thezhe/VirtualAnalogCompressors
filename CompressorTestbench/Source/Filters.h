@@ -1,17 +1,21 @@
 /*
-  ==============================================================================
-    Linear, piecewise linear, and mostly linear filters.
-    
-    Zhe Deng 2021
-    thezhefromcenterville@gmail.com
+==============================================================================
+  Linear, piecewise linear, and mostly linear filters.
 
-    This file is part of CompressorTestBench which is released under the MIT license.
-    See file LICENSE or go to https://github.com/thezhe/VirtualAnalogCompressors for full license details.
-  ==============================================================================
+  Zhe Deng 2021
+  thezhefromcenterville@gmail.com
+
+  This file is part of CompressorTestBench which is released under the MIT license.
+  See file LICENSE or go to https://github.com/thezhe/VirtualAnalogCompressors for full license details.
+==============================================================================
 */
 
 #pragma once
+
 #include "Core.h"
+
+namespace VA
+{
 
 #pragma region Multimode1
 
@@ -29,22 +33,26 @@ public:
 
     using FilterType = Multimode1FilterType;
 
-    /** Set mode to lowpass or highpass */
+    /// <summary>
+    /// Set the filter type
+    /// </summary>
+    /// <param name="type">Choices include high-pass and low-pass</param>
     void setFilterType(FilterType type) noexcept
     {
         filterType = type;
     }
 
-    /** Set the angular cutoff frequency
-    *
-    *   Note 1: This function is for programmatically modulating cutoff at audio rates.
-    *
-    *   Note 2: Do not use negative omega values.
-    */
-    void setOmega(SampleType omega) noexcept
+    /// <summary>
+    /// Set the angular cutoff frequency (Omega)
+    /// </summary>
+    /// <remarks>
+    /// This function is for programmatically modulating cutoff at audio rates
+    /// </remarks>
+    /// <param name="Omega">Omega should be in the range [0, Nyquist)</param>
+    void setOmega(SampleType Omega) noexcept
     {
-        auto g = tan(omega * T_2);
-        G =  g / (SampleType(1.0) + g);
+        auto g = std::tan(Omega * Tdiv2);
+        G = g / (SampleType(1.0) + g);
     }
 
     /** Set the filter cutoff frequency in hertz
@@ -84,12 +92,11 @@ public:
     /** Process a sample given a channel */
     SampleType processSample(SampleType x, size_t channel) noexcept
     {
-        auto& s = _s1[channel];
+        SampleType s = I1.getState(channel);
 
         //filter
-        auto v = (x - s) * G;
-        auto y = v + s;
-        s = y + v;
+        SampleType v = (x - s) * G;
+        SampleType y = I1.processSample(v, channel);
 
         //filter type
         return filterType == FilterType::Lowpass ? y : x - y;
@@ -102,11 +109,11 @@ private:
     FilterType filterType = FilterType::Lowpass;
     std::atomic<SampleType> G{ SampleType(1.0) };
 
-    //state
-    std::vector<SampleType> _s1{ 2 };
-    
+    //filter
+    Integrator<SampleType> I1;
+
     //spec
-    SampleType T_2{ 0.5 };
+    SampleType Tdiv2{ 0.5 };
 
 };
 
@@ -135,7 +142,7 @@ public:
     SampleType processSample(SampleType x, size_t channel) noexcept
     {
         //branching cutoff
-        mm1.setG(x < y ? Gr : Ga); 
+        mm1.setG(x < y ? Gr : Ga);
 
         //filter
         y = mm1.processSample(x, channel);
@@ -151,7 +158,7 @@ private:
     Multimode1<SampleType> mm1;
 
     //state
-    SampleType y;
+    SampleType y{ 0 };
 };
 
 #pragma endregion
@@ -248,7 +255,7 @@ private:
 //    std::vector<SampleType> _s2{ 2 };
 //
 //    //spec
-//    SampleType T_2{ 0.5 };
+//    SampleType Tdiv2{ 0.5 };
 //
 //};
 //
@@ -262,7 +269,7 @@ class MonoConverter
 {
 public:
     /** Prepare the processing specifications */
-    void prepare(size_t samplesPerBlock, size_t numInputChannels);
+    void prepare(size_t numInputChannels);
 
     /** Process a frame given a buffer */
     SampleType processFrame(SampleType** buffer, size_t frame) noexcept
@@ -338,7 +345,7 @@ public:
 private:
 
     //filter coefficients
-    SampleType b0, b1, b2, a1, a2;
+    SampleType b0{ 0 }, b1{ 0 }, b2{ 0 }, a1{ 0 }, a2{ 0 };
 
     //state
     std::vector<SampleType> _x1{ 2 }, _x2{ 2 }, _y1{ 2 }, _y2{ 2 };
@@ -415,10 +422,11 @@ private:
             return std::abs(x);
             break;
         case DetectorRectifierType::HalfWaveRect:
-            return (std::exp(x)-1)/(std::exp(1)-1);
+            return (std::exp(x) - SampleType(1.0)) / (std::exp(SampleType(1.0)) - SampleType(1.0));
             break;
         default: //DetectorRectifierType::FullWaveRect:
-            return x > 0 ? (std::exp(x) - 1) / (std::exp(1) - 1): (std::exp(-x) - 1) / (std::exp(1) - 1);
+            return x > 0 ? (std::exp(x) - SampleType(1.0)) / (std::exp(SampleType(1.0)) - SampleType(1.0))
+                : (std::exp(-x) - SampleType(1.0)) / (std::exp(SampleType(1.0)) - SampleType(1.0));
             break;
         }
     }
@@ -428,12 +436,13 @@ private:
     DetectorRectifierType rectifierType = DetectorRectifierType::Peak;
 
     //filter
-    MonoConverter<SampleType> monoConverter;
     KFilter<SampleType> kFilter;
 };
 
 #pragma endregion
 
+} // namespace VA
+
 //TODO LUTs and LUT sample count optimization
 //TODO detector shockley equation
-//TODO solve SVF zero delay eqn using LP or BP as variable, possible optimization?
+//TODO solve SVF zero delay eqn using LP or BP as variable, possible optimization? 

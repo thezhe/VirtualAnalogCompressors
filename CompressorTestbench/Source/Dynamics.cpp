@@ -1,14 +1,18 @@
 /*
-  ==============================================================================
-    Zhe Deng 2020
-    thezhefromcenterville@gmail.com
+==============================================================================
+Zhe Deng 2020
+thezhefromcenterville@gmail.com
 
-    This file is part of TestBench which is released under the MIT license.
-    See file LICENSE or go to https://github.com/thezhe/VirtualAnalogs for full license details.
-  ==============================================================================
+This file is part of TestBench which is released under the MIT license.
+See file LICENSE or go to https://github.com/thezhe/VirtualAnalogs for full license details.
+==============================================================================
 */
 
 #include "Dynamics.h"
+#include "Filters.h"
+
+namespace VA
+{
 
 #pragma region DynamicsProcessor
 
@@ -67,9 +71,9 @@ void DynamicsProcessor<SampleType>::setReleaseNonlinearity(SampleType nonlineari
 }
 
 template<typename SampleType>
-void DynamicsProcessor<SampleType>::setPositiveEnvelopeRatio(SampleType ratioR) noexcept 
-{ 
-    exponentP = SampleType(1.0) / ratioR - SampleType(1.0); 
+void DynamicsProcessor<SampleType>::setPositiveEnvelopeRatio(SampleType ratioR) noexcept
+{
+    exponentP = SampleType(1.0) / ratioR - SampleType(1.0);
 }
 
 template<typename SampleType>
@@ -85,15 +89,15 @@ void DynamicsProcessor<SampleType>::setSensitivity(SampleType sensitivity) noexc
 }
 
 template<typename SampleType>
-void DynamicsProcessor<SampleType>::setWetGain(SampleType wetdB) noexcept 
-{ 
-    wetLin = MathFunctions<SampleType>::decibelsToGain(wetdB); 
+void DynamicsProcessor<SampleType>::setWetGain(SampleType wetdB) noexcept
+{
+    wetLin = MathFunctions<SampleType>::decibelsToGain(wetdB);
 }
 
 template<typename SampleType>
-void DynamicsProcessor<SampleType>::setDryGain(SampleType drydB) noexcept 
-{ 
-    dryLin = MathFunctions<SampleType>::decibelsToGain(drydB); 
+void DynamicsProcessor<SampleType>::setDryGain(SampleType drydB) noexcept
+{
+    dryLin = MathFunctions<SampleType>::decibelsToGain(drydB);
 }
 
 template<typename SampleType>
@@ -112,12 +116,14 @@ void DynamicsProcessor<SampleType>::reset()
 template<typename SampleType>
 void DynamicsProcessor<SampleType>::prepare(SampleType sampleRate, size_t samplesPerBlock, size_t numInputChannels)
 {
+    monoConverter.prepare(numInputChannels);
+
     //detector
     detector.prepare(sampleRate, samplesPerBlock, numInputChannels);
 
     //filters
     nlEF.prepare(sampleRate, numChannels);
-    
+
     //state
     _y.resize(numInputChannels);
     std::fill(_y.begin(), _y.end(), SampleType(0.0));
@@ -131,3 +137,5 @@ template class DynamicsProcessor<float>;
 template class DynamicsProcessor<double>;
 
 #pragma endregion
+
+} // namespace VA

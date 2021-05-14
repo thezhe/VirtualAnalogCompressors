@@ -1,14 +1,17 @@
 /*
-  ==============================================================================
-    Zhe Deng 2020
-    thezhefromcenterville@gmail.com
+==============================================================================
+Zhe Deng 2020
+thezhefromcenterville@gmail.com
 
-    This file is part of CompressorTestBench which is released under the MIT license.
-    See file LICENSE or go to https://github.com/thezhe/VirtualAnalogCompressors for full license details.
-  ==============================================================================
+This file is part of CompressorTestBench which is released under the MIT license.
+See file LICENSE or go to https://github.com/thezhe/VirtualAnalogCompressors for full license details.
+==============================================================================
 */
 
 #include "Filters.h"
+
+namespace VA
+{
 
 #pragma region Multimode1
 
@@ -27,24 +30,24 @@ void Multimode1<SampleType>::setTau(SampleType tauMs) noexcept
 template<typename SampleType>
 SampleType Multimode1<SampleType>::tauToG(SampleType tauMs) noexcept
 {
-    SampleType g = tan(T_2 * SampleType(1000.0) / tauMs);
+    SampleType g = tan(Tdiv2 * SampleType(1000.0) / tauMs);
     return g / (SampleType(1.0) + g);
 }
 
 template<typename SampleType>
 void Multimode1<SampleType>::reset()
 {
-    std::fill(_s1.begin(), _s1.end(), SampleType(0.0));
+    I1.reset();
 }
 
 template<typename SampleType>
 void Multimode1<SampleType>::prepare(SampleType sampleRate, size_t numInputChannels)
 {
-    T_2 = SampleType(0.5) / sampleRate;
-
-    _s1.resize(numInputChannels);
-
-    reset();
+    //filter
+    I1.prepare(numInputChannels);
+    
+    //spec
+    Tdiv2 = SampleType(0.5) / sampleRate;
 }
 
 template class Multimode1 <float>;
@@ -80,14 +83,14 @@ void BallisticsFilter<SampleType>::prepare(SampleType sampleRate, size_t numInpu
 }
 
 template class BallisticsFilter<float>;
-template class BallisticsFilter<float>;
+template class BallisticsFilter<double>;
 
 #pragma endregion
 
 #pragma region MonoConverter
 
 template <typename SampleType>
-void MonoConverter<SampleType>::prepare(size_t samplesPerBlock, size_t numInputChannels)
+void MonoConverter<SampleType>::prepare(size_t numInputChannels)
 {
     numChannels = numInputChannels;
     divNumChannels = SampleType(1.0) / numInputChannels;
@@ -113,12 +116,12 @@ template<typename SampleType>
 void KFilter<SampleType>::prepare(SampleType sampleRate, size_t numInputChannels)
 {
     //Parameters
-    SampleType Vh = 1.58, Vb = 1.26, Vl = 1;
-    SampleType Q = 0.71;
-    SampleType fc = 1681.97;
-    
+    SampleType Vh = SampleType(1.58), Vb = SampleType(1.26), Vl = SampleType(1);
+    SampleType Q = SampleType(0.71);
+    SampleType fc = SampleType(1681.97);
+
     //Prewarped angular cutoff
-    SampleType g = tan(std::numbers::pi_v<SampleType> * fc / sampleRate);
+    SampleType g = tan(VA::MathConstants<SampleType>::pi * fc / sampleRate);
     SampleType gSq = g * g;
 
     //Calculate Coefficients
@@ -161,7 +164,6 @@ void Detector<SampleType>::reset()
 template<typename SampleType>
 void Detector<SampleType>::prepare(SampleType sampleRate, size_t samplesPerBlock, size_t numInputChannels)
 {
-    monoConverter.prepare(samplesPerBlock, numInputChannels);
     kFilter.prepare(sampleRate, numInputChannels);
 }
 
@@ -169,3 +171,5 @@ template class Detector<float>;
 template class Detector<double>;
 
 #pragma endregion
+
+} // namespace VA
