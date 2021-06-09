@@ -29,8 +29,6 @@ enum class DynamicsProcessorOutputType
 
 #endif 
 
-
-
 enum class DynamicsProcessorInputFilterType
 {
     None = 1,
@@ -38,6 +36,11 @@ enum class DynamicsProcessorInputFilterType
     HP1
 };
 
+enum class DynamicsProcessorCtfType
+{
+    Traditional = 1,
+    InductorBH
+};
 
 enum class DynamicsProcessorSidechainInputType
 {
@@ -49,95 +52,160 @@ enum class DynamicsProcessorSidechainInputType
 /// <summary>
 /// A general <c>DynamicsProcessor</c> with compressor and transient designer capabilities
 /// </summary>
-/// <typeparam name="SampleType"></typeparam>
-template <typename SampleType>
+template <typename FloatType>
 class DynamicsProcessor
 {
 public:
 
     using FilterType = Multimode1FilterType;
-
     using SidechainInputType = DynamicsProcessorSidechainInputType;
+    using CtfType = DynamicsProcessorCtfType;
 
-    /** Set the sidechain input */
+    /// <summary>
+    /// Set the sidechain input 
+    /// </summary>
     void setSidechainInputType(SidechainInputType type) noexcept
     {
         sidechainInputType = type;
     }
 
+    /// <summary>
+    /// Set the compressor transfer function
+    /// </summary>
+    void setCtfType(CtfType type) noexcept
+    {
+        ctfType = type;
+    }
+
 #ifdef DEBUG
 
+    /// <summary>
+    /// Output different nodes of the processing chain for analysis
+    /// </summary>
     void setOutputType(DynamicsProcessorOutputType type) noexcept
     {
         outputType = type;
     }
 
+    /// <summary>
+    /// Move the ctf before the envelope filter
+    /// </summary>
+    void setCtfBeforeEnvelope(bool enable) noexcept
+    {
+        ctfBeforeEnvelope = enable;
+    }
+
 #endif
 
+    /// <summary>
+    /// Use the average of the sidechain input's channels for the sidechain
+    /// </summary>
+    void setStereoLink(bool enable) noexcept;
 
-    /** Enable or disable stereo linking in the detector output
-    *
-    *   Note: Stereo linking applies the same processing to all channels
-    */
-    void setStereoLink(bool linkEnable) noexcept;
-
-    /** Set the detector's pre-filter type */
+    /// <summary>
+    /// Set the frequency-weighting filter 
+    /// </summary>
     void setPreFilterType(DetectorPreFilterType type) noexcept;
 
-    /** Set the detector's rectifier type */
+    /// <summary>
+    /// Set the rectifier function
+    /// </summary>
     void setRectifierType(DetectorRectifierType type) noexcept;
 
-    /** Set the gain of the detector output in decibels */
-    void setDetectorGain(SampleType dB) noexcept;
+    /// <summary>
+    /// Set the ctf threshold in decibels
+    /// </summary>
+    void setThreshold(FloatType value) noexcept
+    {
+        thr = value;
+    }
 
-    /** Set the threshold in decibels */
-    void setThreshold(SampleType thrdB) noexcept;
+    /// <summary>
+    /// Set the ctf knee width. A value of 0 is a hard knee.
+    /// </summary>
+    void setKnee(FloatType value) noexcept 
+    {
+        knee = value;
+    }
 
-    void setKneeSofteness(SampleType softnessS) noexcept {}
+    /// <summary>
+    /// Set the ctf ratio.
+    /// </summary>
+    void setRatio(FloatType value) noexcept
+    {
+        divRatio = FloatType(1.0) / value;;
+    }
 
-    /** Set the attack time in miliseconds */
-    void setAttack(SampleType attackMs) noexcept;
+    /// <summary>
+    /// Set the attack time of the envelope filter in miliseconds
+    /// </summary>
+    void setAttack(FloatType value) noexcept;
+    
+    /// <summary>
+    /// Set the nonlinearity of the envelope filter during attacks
+    /// </summary>
+    void setAttackNonlinearity(FloatType value) noexcept;
 
-    /** Set the nonlinearity of the ballistics filter during attacks */
-    void setAttackNonlinearity(SampleType nonlinearityN) noexcept;
+    /// <summary>
+    /// Set the release of the envelope filter in miliseconds
+    /// </summary>
+    void setRelease(FloatType releaseMs) noexcept;
 
-    /** Set the release time in miliseconds*/
-    void setRelease(SampleType releaseMs) noexcept;
+    /// <summary>
+    /// Set the nonlinearity of the envelope filter during releases
+    /// </summary>
+    void setReleaseNonlinearity(FloatType value) noexcept;
 
-    /** Set the nonlinearity of the ballistics filter during releases */
-    void setReleaseNonlinearity(SampleType nonlinearityN) noexcept;
+    /// <summary>
+    /// Set the sensitivity of the envelope filter. A value of 0 is a ballistics filter.
+    /// </summary>
+    void setSensitivity(FloatType sensitivity) noexcept;
 
-    /** Ratio to use when the envelope is positive */
-    void setPositiveEnvelopeRatio(SampleType ratioR) noexcept;
+    /// <summary>
+    /// Set the gain of the processed signal in decibels
+    /// </summary>
+    void setWetGain(FloatType value) noexcept;
 
-    /** Ratio to use when the envelope is negative */
-    void setNegativeEnvelopeRatio(SampleType ratioR) noexcept;
+    /// <summary>
+    /// Set the gain of the unprocessed signal in decibels
+    /// </summary>
+    void setDryGain(FloatType drydB) noexcept;
 
-    void setSensitivity(SampleType sensitivity) noexcept;
-
-    /** Set the gain of the processed signal in decibels */
-    void setWetGain(SampleType wetdB) noexcept;
-
-    /** Set the gain of the unprocessed signal in decibels */
-    void setDryGain(SampleType drydB) noexcept;
-
-    /** Reset the internal state */
+    /// <summary>
+    /// Reset the internal state
+    /// </summary>
     void reset();
 
-    /** Prepare the processing specifications */
-    void prepare(SampleType sampleRate, size_t samplesPerBlock, size_t numInputChannels);
+    /// <summary>
+    /// Prepare the processing specifications
+    /// </summary>
+    void prepare(FloatType sampleRate, size_t samplesPerBlock, size_t numInputChannels);
 
-    /** Process a sample given the channel */
-    SampleType processSample(SampleType x, size_t channel) noexcept
+    /// <summary>
+    /// Process a sample and a sidechain sample given the channel
+    /// </summary>
+    /// <param name="sc">Sidechain sample</param>
+    FloatType processSample(FloatType x, FloatType sc, size_t channel) noexcept
     {
         //Detector
-        SampleType d = detectorGain * detector.processSample(x, channel);
+        FloatType d = detector.processSample(sc, channel);
 
         //Smoothing
-        SampleType env = nlEF.processSample(d, channel);
+        FloatType env = nlEF.processSample(d, channel);
+        //FloatType env = bf.processSample(d, channel);
 
-        //Transfer Function
-        SampleType tf = MathFunctions<SampleType>::ttf(env, thrLin, exponentP, exponentN);
+        //Transfer Function (output gain will be between -100dB and 0dB)
+        FloatType envdB = gainToDecibelsLUT.processSampleUnchecked(env);
+        FloatType tf = 0;
+        switch (ctfType)
+        {
+        case CtfType::Traditional:
+            tf = decibelsToGainLUT.processSampleChecked(MathFunctions<FloatType>::ctf(envdB, thr, knee, divRatio)) / env;
+            break;
+        default: //CtfType::InductorBH
+            //tf = decibelsToGainLUT.processSampleChecked(hysteresis.processSample(envdB, channel)) / env;
+            break;
+        }
 
 #ifdef DEBUG
 
@@ -152,19 +220,21 @@ public:
         case DynamicsProcessorOutputType::TransferFunction:
             return tf;
             break;
-        default:
+        default: //DynamicsProcessorOutputType::Normal:
             return x * tf;
             break;
         }
 
 #endif
-        //Saturation
+        
+        //Output for release builds
         return x * tf;
-
     }
 
-    /** Process a buffer */
-    void process(SampleType** buffer) noexcept
+    /// <summary>
+    /// Process a buffer
+    /// </summary>
+    void process(FloatType** buffer) noexcept
     {
         //seperate cases for stereoLink, stereoLink feedback, no SL, noSL feedback
         if (stereoLink)
@@ -174,18 +244,18 @@ public:
             case SidechainInputType::Feedforward:
                 for (size_t i = 0; i < blockSize; ++i)
                 {
-                    SampleType x = monoConverter.processFrame(buffer, i);
+                    FloatType sc = monoConverter.processFrame(buffer, i);
                     for (size_t ch = 0; ch < numChannels; ++ch)
-                        buffer[ch][i] = std::fma(dryLin, buffer[ch][i], wetLin * processSample(x, ch));
+                        buffer[ch][i] = std::fma(dryLin, buffer[ch][i], wetLin * processSample(buffer[ch][i], sc, ch));
                 }
                 break;
             case SidechainInputType::Feedback:
                 for (size_t i = 0; i < blockSize; ++i)
                 {
-                    SampleType x = monoConverter.processFrame(_y);
+                    FloatType sc = monoConverter.processFrame(_y);
                     for (size_t ch = 0; ch < numChannels; ++ch)
                     {
-                        _y[ch] = processSample(x, ch);
+                        _y[ch] = processSample(buffer[ch][i], sc, ch);
                         buffer[ch][i] = std::fma(dryLin, buffer[ch][i], wetLin * _y[ch]);
                     }
                 }
@@ -202,7 +272,7 @@ public:
                 for (size_t i = 0; i < blockSize; ++i)
                 {
                     for (size_t ch = 0; ch < numChannels; ++ch)
-                        buffer[ch][i] = std::fma(dryLin, buffer[ch][i], wetLin * processSample(buffer[ch][i], ch));
+                        buffer[ch][i] = std::fma(dryLin, buffer[ch][i], wetLin * processSample(buffer[ch][i], buffer[ch][i], ch));
                 }
                 break;
             case SidechainInputType::Feedback:
@@ -210,7 +280,7 @@ public:
                 {
                     for (size_t ch = 0; ch < numChannels; ++ch)
                     {
-                        _y[ch] = processSample(_y[ch], ch);
+                        _y[ch] = processSample(buffer[ch][i], _y[ch], ch);
                         buffer[ch][i] = std::fma(dryLin, buffer[ch][i], wetLin * _y[ch]);
                     }
                 }
@@ -224,39 +294,62 @@ public:
 private:
 
     //parameters
-    SidechainInputType sidechainInputType = SidechainInputType::Feedforward;
-    std::atomic<SampleType> detectorGain = SampleType(1.0);
+    std::atomic<SidechainInputType> sidechainInputType{ SidechainInputType::Feedforward };
+    std::atomic<CtfType> ctfType{ CtfType::Traditional };
     std::atomic<bool> stereoLink = true;
-    std::atomic<SampleType> thrLin = 1.0, exponent = 0.0;
-    std::atomic<SampleType> exponentP = SampleType(0.0), exponentN = SampleType(0.0);
-    std::atomic<SampleType> dryLin, wetLin = 1.0;
-
-
-
-#ifdef DEBUG
-
-    std::atomic<DynamicsProcessorOutputType> outputType = DynamicsProcessorOutputType::Normal;
-
-#endif
-
+    std::atomic<FloatType> thr{ 0 }, divRatio{ 1 }, knee{ 0 }, dryLin{ 0 }, wetLin{ 1 };
 
     //filters
-    MonoConverter<SampleType> monoConverter;
-    Detector<SampleType> detector;
-    NLEnvelopeFilter<SampleType> nlEF;
+    MonoConverter<FloatType> monoConverter;
+    Detector<FloatType> detector;
+    NLEnvelopeFilter<FloatType> nlEF;
+    BallisticsFilter<FloatType> bf;
+    Hysteresis_Time<FloatType> hysteresis;
 
     //state
-    std::vector<SampleType> _y{ 2 };
+    std::vector<FloatType> _y{ 2 };
 
     //spec
     size_t blockSize{ 512 }, numChannels{ 2 };
+
+    //LUTs
+    static LookupTable<FloatType> decibelsToGainLUT;
+    static LookupTable<FloatType> gainToDecibelsLUT;
+
+#ifdef DEBUG
+
+    //Output a specific node
+    std::atomic<DynamicsProcessorOutputType> outputType = DynamicsProcessorOutputType::Normal;
+    
+    //Ctf location
+    bool ctfBeforeEnvelope = false;
+
+#endif
 };
+
+template<typename FloatType>
+LookupTable<FloatType> DynamicsProcessor<FloatType>::decibelsToGainLUT
+(
+    [](FloatType x) { return MathFunctions<FloatType>::decibelsToGain(x); },
+    -100.0,
+    0.0,
+    128
+);
+
+template<typename FloatType>
+LookupTable<FloatType> DynamicsProcessor<FloatType>::gainToDecibelsLUT
+(
+    [](FloatType x) { return MathFunctions<FloatType>::gainToDecibels(x); },
+    0,
+    1,
+    128
+);
 
 } // namespace VA
 
 //TODO sidechain support
 //TODO expansion (upwards and downwards) and compression (upwards and downwards)
-//TODO soft knee
 //TODO waveshaping transfer functions
-//TODO nonlinearityN normalize to [0,1]
+//TODO nonlinearity normalize to [0,1]
 //TODO optimize stereo link to one channel internally
+//TODO subtract env in db domain

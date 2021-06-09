@@ -2,8 +2,8 @@
 
 <JUCERPROJECT id="kLFAAs" name="CompressorTestbench" projectType="audioplug"
               useAppConfig="0" addUsingNamespaceToJuceHeader="0" displaySplashScreen="1"
-              jucerFormatVersion="1" pluginFormats="buildAU,buildVST3" defines="_ITERATOR_DEBUG_LEVEL=0"
-              cppLanguageStandard="17" pluginManufacturer="Zhe Deng" companyName="Zhe Deng">
+              jucerFormatVersion="1" pluginFormats="buildAU,buildVST3" cppLanguageStandard="17"
+              pluginManufacturer="Zhe Deng" companyName="Zhe Deng" defines="_ITERATOR_DEBUG_LEVEL=0">
   <MAINGROUP id="ZzvBcj" name="CompressorTestbench">
     <GROUP id="{02A2FA68-6A95-ED69-DBA0-A9567568F2A5}" name="Source">
       <FILE id="S8KYzW" name="Core.h" compile="0" resource="0" file="Source/Core.h"/>
@@ -14,7 +14,6 @@
             file="Source/NonlinearFilters.h"/>
       <FILE id="U8fsTA" name="NonlinearFilters.cpp" compile="1" resource="0"
             file="Source/NonlinearFilters.cpp"/>
-      <FILE id="DG27RP" name="DebugTools.h" compile="0" resource="0" file="Source/DebugTools.h"/>
       <FILE id="PfnVOM" name="Dynamics.h" compile="0" resource="0" file="Source/Dynamics.h"/>
       <FILE id="ibIGOs" name="Dynamics.cpp" compile="1" resource="0" file="Source/Dynamics.cpp"/>
       <FILE id="z6Qg7D" name="PluginProcessor.cpp" compile="1" resource="0"

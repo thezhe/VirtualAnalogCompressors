@@ -85,25 +85,20 @@ private:
     juce::ComboBox rectifierComboBox;
     std::unique_ptr<ComboBoxAttachment> rectifierAttachment;
 
-    //Detector Gain
-    juce::Label detectorGainLabel;
-    juce::Slider detectorGainSlider;
-    std::unique_ptr<SliderAttachment> detectorGainAttachment;
-
     //Threshold
     juce::Label thresholdLabel;
     juce::Slider thresholdSlider;
     std::unique_ptr<SliderAttachment> thresholdAttachment;
 
-    //Positive Envelope Ratio
-    juce::Label positiveEnvelopeRatioLabel;
-    juce::Slider positiveEnvelopeRatioSlider;
-    std::unique_ptr<SliderAttachment> positiveEnvelopeRatioAttachment;
+    //Knee
+    juce::Label kneeLabel;
+    juce::Slider kneeSlider;
+    std::unique_ptr<SliderAttachment> kneeAttachment;
 
-    //Positive Envelope Ratio
-    juce::Label negativeEnvelopeRatioLabel;
-    juce::Slider negativeEnvelopeRatioSlider;
-    std::unique_ptr<SliderAttachment> negativeEnvelopeRatioAttachment;
+    //Ratio
+    juce::Label ratioLabel;
+    juce::Slider ratioSlider;
+    std::unique_ptr<SliderAttachment> ratioAttachment;
 
     //Attack
     juce::Label attackLabel;

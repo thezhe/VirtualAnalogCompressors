@@ -31,7 +31,7 @@ enum class RLTopologyType
 *
 *   Note: Use for time domain effects. Implemented using Multimode1.
 */
-template<typename SampleType>
+template<typename FloatType>
 class NLMM1_Time
 {
 public:
@@ -40,34 +40,33 @@ public:
     *
     *   Note: A good range is [0, 500] with log tapered controls
     */
-    void setNonlinearity(SampleType nonlinearityN) noexcept;
+    void setNonlinearity(FloatType nonlinearityN) noexcept;
 
     /** Set the time in miliseconds for the step response to reach 1-1/e when nonlinearity is 0 */
-    void setLinearTau(SampleType linearTauMs) noexcept;
+    void setLinearTau(FloatType linearTauMs) noexcept;
 
-    void setSqrtLinearOmega(SampleType sqrtLinearOmega) noexcept
+    void setSqrtLinearOmega(FloatType sqrtLinearOmega) noexcept
     {
         omegaLinSqrt = sqrtLinearOmega;
     }
 
     /** Set the processing specifications */
-    void prepare(SampleType sampleRate, size_t numInputChannels);
+    void prepare(FloatType sampleRate, size_t numInputChannels);
 
     /** Reset the internal state*/
     void reset()
     {
         mm1.reset();
-        std::fill(_y.begin(), _y.end(), SampleType(0.0));
+        std::fill(_y.begin(), _y.end(), FloatType(0.0));
     }
 
     /** Process a sample given the channel */
-    SampleType processSample(SampleType x, size_t channel) noexcept
+    FloatType processSample(FloatType x, size_t channel) noexcept
     {
-        auto& y = _y[channel];
+        FloatType& y = _y[channel];
 
         //Modulate Cutoff
-        auto sqrtOmega = omegaLinSqrt + nonlinearity * (topologyType == RLTopologyType::Feedforward ? x : y);
-        sqrtOmega = std::min(sqrtOmega, omegaLimit);
+        FloatType sqrtOmega = omegaLinSqrt + nonlinearity * std::abs((topologyType == RLTopologyType::Feedforward ? x : y));
         mm1.setOmega(sqrtOmega * sqrtOmega);
 
         //filter
@@ -80,21 +79,21 @@ private:
     //parameters
     RLTopologyType topologyType = RLTopologyType::Feedback;
     RLModelType modelType = RLModelType::Frohlich;
-    std::atomic<SampleType> omegaLinSqrt, nonlinearity;
-    SampleType omegaLimit;
+    std::atomic<FloatType> omegaLinSqrt, nonlinearity;
+    FloatType omegaLimit;
 
     //filter
-    Multimode1<SampleType> mm1;
+    Multimode1<FloatType> mm1;
 
     //output
-    std::vector<SampleType> _y{ 2 };
+    std::vector<FloatType> _y{ 2 };
 };
 
 /** Nonlinear inductor first-order Multimode filter based on modulating cutoff model.
 *
 *   Note: Use for frequency domain effects. Implemented using Multimode1.
 */
-template<typename SampleType>
+template<typename FloatType>
 class NLMM1_Freq
 {
 public:
@@ -111,7 +110,7 @@ public:
         feedbackSaturation = enable;
     }
 
-    void setLinearCutoff(SampleType cutoffHz) noexcept;
+    void setLinearCutoff(FloatType cutoffHz) noexcept;
 
     /// <summary>
     /// Set the inductor nonlinearity.
@@ -119,10 +118,10 @@ public:
     /// <remarks>
     /// A good range is [0, 500] with log tapered controls.
     /// </remarks>
-    void setNonlinearity(SampleType nonlinearityN) noexcept;
+    void setNonlinearity(FloatType nonlinearityN) noexcept;
 
     /** Set the processing specifications */
-    void prepare(SampleType sampleRate, size_t numInputChannels, size_t samplesPerBlock);
+    void prepare(FloatType sampleRate, size_t numInputChannels, size_t samplesPerBlock);
 
     /** Reset the internal state*/
     void reset();
@@ -139,56 +138,56 @@ public:
     }
 
     /** Process a sample given the channel */
-    SampleType processSample(SampleType x, size_t channel) noexcept
+    FloatType processSample(FloatType x, size_t channel) noexcept
     {
-        SampleType s = I1.getState(channel);
+        FloatType s = I1.getState(channel);
 
         //find v
-        SampleType v;
+        FloatType v;
         if (feedbackSaturation)
         {
             //linear y prediction
-            SampleType S = s * div1plusg;
-            SampleType y0 = std::fma(Glin, x, S); //G * x + S;
-            SampleType y = y0;
+            FloatType S = s * div1plusg;
+            FloatType y0 = std::fma(Glin, x, S); //G * x + S;
+            FloatType y = y0;
 
             //nonlinear y prediction (Newton-Ralphson)
             for (size_t i = 0; i < nrIterations; ++i)
             {
                 //inverse froelich kennelly
-                SampleType omegaSqrt = std::fma(N, y0 > 0 ? y : -y, omegaLinSqrt);
-                SampleType g = Tdiv2 * omegaSqrt * omegaSqrt;
+                FloatType omegaSqrt = std::fma(N, y0 > 0 ? y : -y, omegaLinSqrt);
+                FloatType g = Tdiv2 * omegaSqrt * omegaSqrt;
 
                 //f(x)
-                SampleType f = y - g * (x - y) - s;
+                FloatType f = y - g * (x - y) - s;
 
                 //df(x)/dx
-                SampleType fPrime = 1 + (y0 > 0 ? SampleType(-1.0) : SampleType(1.0)) * TN * omegaSqrt * (x - y) + g;
+                FloatType fPrime = 1 + (y0 > 0 ? FloatType(-1.0) : FloatType(1.0)) * TN * omegaSqrt * (x - y) + g;
 
                 y -= f / fPrime;
             }
             
             //calculate v
-            SampleType g = Tdiv2 * MathFunctions<SampleType>::invFroelichKennelly(y, omegaLinSqrt, N);
+            FloatType g = Tdiv2 * MathFunctions<FloatType>::invFroelichKennelly(y, omegaLinSqrt, N);
             v = g * (x - y);
         }
         else //feedbackSaturation == false
         { 
             //calculate v
-            SampleType g = Tdiv2 * MathFunctions<SampleType>::invFroelichKennelly(x, omegaLinSqrt, N);
-            SampleType G = g / (SampleType(1.0) + g);
+            FloatType g = Tdiv2 * MathFunctions<FloatType>::invFroelichKennelly(x, omegaLinSqrt, N);
+            FloatType G = g / (FloatType(1.0) + g);
             v = (x - s) * G;
         }
 
         //integrate
-        SampleType y = I1.processSample(v, channel);
+        FloatType y = I1.processSample(v, channel);
 
         //output
         return filterType == Multimode1FilterType::Lowpass ? y : x - y;
     }
 
     /** Process a buffer */
-    void process(SampleType** buffer) noexcept
+    void process(FloatType** buffer) noexcept
     {
         for (size_t i = 0; i < blockSize; ++i)
             for (size_t ch = 0; ch < I1.getNumChannels(); ++ch)
@@ -199,46 +198,46 @@ private:
 
     //parameters
     RLTopologyType topologyType = RLTopologyType::Feedback;
-    std::atomic<SampleType> omegaLinSqrt, N, TN;
+    std::atomic<FloatType> omegaLinSqrt, N, TN;
     std::atomic<size_t> nrIterations{ 4 };
-    SampleType div1plusg, Glin;
+    FloatType div1plusg, Glin;
     std::atomic<FilterType> filterType = FilterType::Lowpass;
     std::atomic<bool> feedbackSaturation = true;
 
     //filter
-    Integrator<SampleType> I1;
+    Integrator<FloatType> I1;
 
     //spec
     size_t blockSize;
-    SampleType Tdiv2{ 0.5 }, T{ 1 }, fs2{ 2 };
+    FloatType Tdiv2{ 0.5 }, T{ 1 }, fs2{ 2 };
 };
 
 /** Ballistics filter using implemented using NLMM1_Time */
-template <typename SampleType>
+template <typename FloatType>
 class NLBallisticsFilter
 {
 public:
 
     /** Set the time in miliseconds for the step response to reach 1-1/e */
-    void setAttack(SampleType attackMs) noexcept;
+    void setAttack(FloatType attackMs) noexcept;
 
     /** Set the inductor nonlinearity during attacks */
-    void setAttackNonlinearity(SampleType nonlinearityN) noexcept;
+    void setAttackNonlinearity(FloatType nonlinearityN) noexcept;
 
     /** Set the time in miliseconds for inversed step response to reach 1/e */
-    void setRelease(SampleType releaseMs) noexcept;
+    void setRelease(FloatType releaseMs) noexcept;
 
     /** Set the inductor nonlinearity during releases */
-    void setReleaseNonlinearity(SampleType nonlinearityN) noexcept;
+    void setReleaseNonlinearity(FloatType nonlinearityN) noexcept;
 
     /** Prepare the processing specifications */
-    void prepare(SampleType sampleRate, size_t numInputChannels);
+    void prepare(FloatType sampleRate, size_t numInputChannels);
 
     /** Reset the internal state */
     void reset();
 
     /** Process a sample in the specified channel */
-    SampleType processSample(SampleType x, size_t channel) noexcept
+    FloatType processSample(FloatType x, size_t channel) noexcept
     {
         auto& y = _y[channel];
 
@@ -254,39 +253,47 @@ public:
 private:
 
     //parameters
-    std::atomic<SampleType> aOmegaLinSqrt = SampleType(1.0), aNonlinearity = SampleType(0.0);
-    std::atomic<SampleType> rOmegaLinSqrt = SampleType(1.0), rNonlinearity = SampleType(0.0);
+    std::atomic<FloatType> aOmegaLinSqrt = FloatType(1.0), aNonlinearity = FloatType(0.0);
+    std::atomic<FloatType> rOmegaLinSqrt = FloatType(1.0), rNonlinearity = FloatType(0.0);
 
     //filter
-    NLMM1_Time<SampleType> nlMM1;
+    NLMM1_Time<FloatType> nlMM1;
 
     //state
-    std::vector<SampleType> _y{ 2 };
+    std::vector<FloatType> _y{ 2 };
 };
 
 /** General Envelope Filter composed of NLBallisticsFilter and DET */
-template<typename SampleType>
+template<typename FloatType>
 class NLEnvelopeFilter
 {
 public:
 
-    /** Set the time in miliseconds for the step response to reach 1-1/e */
-    void setAttack(SampleType attackMs) noexcept;
-
-    /** Set the inductor nonlinearity during attacks */
-    void setAttackNonlinearity(SampleType nonlinearityN) noexcept;
-
-    /** Set the time in miliseconds for inversed step response to reach 1/e */
-    void setRelease(SampleType releaseMs) noexcept;
-
-    /** Set the inductor nonlinearity during releases */
-    void setReleaseNonlinearity(SampleType nonlinearityN) noexcept;
+    /// <summary>
+    /// Set the time in milliseconds for the step response to reach 1-1/e if the nonlinearity 0
+    /// </summary>
+    void setAttack(FloatType attackMs) noexcept;
 
     /// <summary>
-    /// Set the sensitivity. The filter acts as a normal Ballistics Filter
+    /// Set the nonlinearity during attacks
+    /// </summary>
+    void setAttackNonlinearity(FloatType value) noexcept;
+
+    /// <summary>
+    /// Set the time in milliseconds for the inversed step response to reach 1/e if the nonlinearity is 0
+    /// </summary>
+    void setRelease(FloatType value) noexcept;
+
+    /// <summary>
+    /// Set the nonlinearity during releases
+    /// </summary>
+    void setReleaseNonlinearity(FloatType value) noexcept;
+
+    /// <summary>
+    /// Set the sensitivity in miliseconds. The filter acts as a normal ballistics filter
     /// (compressor) for large values and as DET for small values (transient designer).
     /// </summary>
-    void setSensitivity(SampleType sensitivity) noexcept;
+    void setSensitivity(FloatType value) noexcept;
 
     /// <summary>
     /// Reset the internal state.
@@ -296,22 +303,25 @@ public:
     /// <summary>
     /// Prepare the processing specifications
     /// </summary>
-    void prepare(SampleType sampleRate, size_t numInputChannels);
+    void prepare(FloatType sampleRate, size_t numInputChannels);
 
-    SampleType processSample(SampleType x, size_t channel) noexcept
+    /// <summary>
+    /// Process a sample given the channel
+    /// </summary>
+    FloatType processSample(FloatType x, size_t channel) noexcept
     {
-        return nlbfFast.processSample(x, channel) - bfSlow.processSample(x, channel);
+        return nlbfFast.processSample(x, channel)-bfSlow.processSample(x, channel);
     }
 
 private:
 
     //parameters
-    SampleType _attackMs, _releaseMs;
-    SampleType sensitivityRatio;
+    FloatType _attackMs, _releaseMs;
+    FloatType sensitivityRatio;
 
     //filters
-    NLBallisticsFilter<SampleType> nlbfFast;
-    BallisticsFilter<SampleType> bfSlow;
+    NLBallisticsFilter<FloatType> nlbfFast;
+    BallisticsFilter<FloatType> bfSlow;
 };
 
 /// <summary>
@@ -321,7 +331,7 @@ private:
 /// Based on: https://jatinchowdhury18.medium.com/complex-nonlinearities-episode-3-hysteresis-fdeb2cd3e3f6
 /// Implementation is optimized for time domain stability and accuracy. TPT and unit delay in feedback loops
 /// </remarks>
-template<typename SampleType>
+template<typename FloatType>
 class Hysteresis_Time
 {
 public:
@@ -334,14 +344,14 @@ public:
     /// <summary>
     /// Prepare the processing specifications
     /// </summary>
-    void prepare(SampleType sampleRate, size_t numInputChannels);
+    void prepare(FloatType sampleRate, size_t numInputChannels);
 
     /// <summary>
     /// Set the 'drive' (a)
     /// </summary>
     /// <param name="value"></param>
     /// <returns></returns>
-    void seta(SampleType value) noexcept
+    void seta(FloatType value) noexcept
     {
         a = value;
         cSdiva = c * S / a;
@@ -353,7 +363,7 @@ public:
     /// </summary>
     /// <param name="value"></param>
     /// <returns></returns>
-    void setS(SampleType value) noexcept
+    void setS(FloatType value) noexcept
     {
         S = value;
         cSdiva = c * S / a;
@@ -365,7 +375,7 @@ public:
     /// </summary>
     /// <param name="value"></param>
     /// <returns></returns>
-    void setc(SampleType value) noexcept
+    void setc(FloatType value) noexcept
     {
         c = value;
 
@@ -377,35 +387,35 @@ public:
     /// <summary>
     /// Process a sample given the channel.
     /// </summary>
-    SampleType processSample(SampleType x, size_t channel) noexcept
+    FloatType processSample(FloatType x, size_t channel) noexcept
     {
-        SampleType y = I1.getPrevOutput(channel); //y[n-1]
+        FloatType y = I1.getPrevOutput(channel); //y[n-1]
         
         //find Q
-        SampleType Q = (x + y) / a;
+        FloatType Q = (x + y) / a;
 
         //find deltax
-        SampleType deltax = getDeltax(x, channel);
+        FloatType deltax = getDeltax(x, channel);
 
         //find L(Q)
-        SampleType L = MathFunctions<SampleType>::L(Q);
+        FloatType L = MathFunctions<FloatType>::L(Q);
         
         //find deltay
-        SampleType deltay = ~(std::signbit(deltax) ^ std::signbit(L - y));
+        FloatType deltay = ~(std::signbit(deltax) ^ std::signbit(L - y));
 
         //find SL(Q)-y
-        SampleType SLmy = S * L - y;
+        FloatType SLmy = S * L - y;
 
         //find (cS/a)L'(Q)
-        SampleType dLcSdiva = MathFunctions<SampleType>::dL(Q) * cSdiva;
+        FloatType dLcSdiva = MathFunctions<FloatType>::dL(Q) * cSdiva;
         
         //find dx
-        SampleType dx = D1.processSample(x, channel);
+        FloatType dx = D1.processSample(x, channel);
 
         //find integrator input
-        SampleType num = ((onemc * deltay * SLmy) / (onemc * deltax * k - alpha * SLmy) + dLcSdiva) * dx;
-        SampleType denom = 1 - alpha * dLcSdiva;
-        SampleType v = Tdiv2 * num / denom;
+        FloatType num = ((onemc * deltay * SLmy) / (onemc * deltax * k - alpha * SLmy) + dLcSdiva) * dx;
+        FloatType denom = 1 - alpha * dLcSdiva;
+        FloatType v = Tdiv2 * num / denom;
 
         //integrate
         return I1.processSample(v, channel);
@@ -414,31 +424,31 @@ public:
 private:
 
     //helper functions
-    SampleType getDeltax(SampleType x, size_t channel) noexcept
+    FloatType getDeltax(FloatType x, size_t channel) noexcept
     {
-        SampleType& x1 = _x1[channel];
+        FloatType& x1 = _x1[channel];
 
-        SampleType y = x > x1 ? SampleType(1.0) : SampleType(-1.0);
+        FloatType y = x > x1 ? FloatType(1.0) : FloatType(-1.0);
         x1 = x;
         return y;
     }
 
     //parameters
-    std::atomic<SampleType> onemc, S, cSdiva, a, c;
+    std::atomic<FloatType> onemc, S, cSdiva, a, c;
 
     //constants
     //Source: https://github.com/jatinchowdhury18/ComplexNonlinearities/blob/master/Hysteresis/Plugin/Source/HysteresisProcessing.h
-    const SampleType alpha{ 1.6e-3 }, k{ 0.47875 };
+    const FloatType alpha{ 1.6e-3 }, k{ 0.47875 };
 
     //filters
-    Differentiator<SampleType> D1;
-    Integrator<SampleType> I1;
+    Differentiator<FloatType> D1;
+    Integrator<FloatType> I1;
 
     //state
-    std::vector<SampleType> _x1{ 2 }; //x[n-1]
+    std::vector<FloatType> _x1{ 2 }; //x[n-1]
 
     //spec
-    SampleType Tdiv2{ 0.5 };
+    FloatType Tdiv2{ 0.5 };
 };
 
 
@@ -450,4 +460,4 @@ private:
 //TODO set a, c, and S need mutex?
 //TODO Hysteresis 
 //TODO FF NLMM1_Freq and Time
-
+//TODO sens ratio vs sens Ms

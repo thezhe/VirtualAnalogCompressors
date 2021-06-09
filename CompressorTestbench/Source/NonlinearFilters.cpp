@@ -17,26 +17,26 @@ namespace VA
 
 #pragma region NLMM1_Time
 
-template<typename SampleType>
-void NLMM1_Time<SampleType>::setNonlinearity(SampleType nonlinearityN) noexcept
+template<typename FloatType>
+void NLMM1_Time<FloatType>::setNonlinearity(FloatType nonlinearityN) noexcept
 {
     nonlinearity = nonlinearityN;
 }
 
-template<typename SampleType>
-void NLMM1_Time<SampleType>::setLinearTau(SampleType linearTauMs) noexcept
+template<typename FloatType>
+void NLMM1_Time<FloatType>::setLinearTau(FloatType linearTauMs) noexcept
 {
-    omegaLinSqrt = sqrt(SampleType(1000.0) / linearTauMs);
+    omegaLinSqrt = sqrt(FloatType(1000.0) / linearTauMs);
 }
 
-template<typename SampleType>
-void NLMM1_Time<SampleType>::prepare(SampleType sampleRate, size_t numInputChannels)
+template<typename FloatType>
+void NLMM1_Time<FloatType>::prepare(FloatType sampleRate, size_t numInputChannels)
 {
     mm1.prepare(sampleRate, numInputChannels);
-    omegaLimit = sampleRate * VA::MathConstants<SampleType>::pi *SampleType(0.499);
+    omegaLimit = sampleRate * VA::MathConstants<FloatType>::pi *FloatType(0.499);
 
     _y.resize(numInputChannels);
-    std::fill(_y.begin(), _y.end(), SampleType(0.0));
+    std::fill(_y.begin(), _y.end(), FloatType(0.0));
 }
 
 template class NLMM1_Time<float>;
@@ -46,43 +46,43 @@ template class NLMM1_Time<double>;
 
 #pragma region NLBallisticsFilter
 
-template<typename SampleType>
-void NLBallisticsFilter<SampleType>::setAttack(SampleType attackMs) noexcept
+template<typename FloatType>
+void NLBallisticsFilter<FloatType>::setAttack(FloatType value) noexcept
 {
-    aOmegaLinSqrt = sqrt(MathFunctions<SampleType>::tauToOmega(attackMs));
+    aOmegaLinSqrt = std::sqrt(FloatType(1000.0)/value);
 }
 
-template<typename SampleType>
-void NLBallisticsFilter<SampleType>::setAttackNonlinearity(SampleType nonlinearityN) noexcept
+template<typename FloatType>
+void NLBallisticsFilter<FloatType>::setAttackNonlinearity(FloatType value) noexcept
 {
-    aNonlinearity = nonlinearityN;
+    aNonlinearity = value;
 }
-template<typename SampleType>
-void NLBallisticsFilter<SampleType>::setRelease(SampleType releaseMs) noexcept
+template<typename FloatType>
+void NLBallisticsFilter<FloatType>::setRelease(FloatType value) noexcept
 {
-    rOmegaLinSqrt = sqrt(MathFunctions<SampleType>::tauToOmega(releaseMs));
-}
-
-template<typename SampleType>
-void NLBallisticsFilter<SampleType>::setReleaseNonlinearity(SampleType nonlinearityN) noexcept
-{
-    rNonlinearity = nonlinearityN;
+    rOmegaLinSqrt = std::sqrt(FloatType(1000.0) / value);
 }
 
-template<typename SampleType>
-void NLBallisticsFilter<SampleType>::reset()
+template<typename FloatType>
+void NLBallisticsFilter<FloatType>::setReleaseNonlinearity(FloatType value) noexcept
+{
+    rNonlinearity = value;
+}
+
+template<typename FloatType>
+void NLBallisticsFilter<FloatType>::reset()
 {
     nlMM1.reset();
-    std::fill(_y.begin(), _y.end(), SampleType(0.0));
+    std::fill(_y.begin(), _y.end(), FloatType(0.0));
 }
 
-template<typename SampleType>
-void NLBallisticsFilter<SampleType>::prepare(SampleType sampleRate, size_t numInputChannels)
+template<typename FloatType>
+void NLBallisticsFilter<FloatType>::prepare(FloatType sampleRate, size_t numInputChannels)
 {
     nlMM1.prepare(sampleRate, numInputChannels);
     _y.resize(numInputChannels);
 
-    std::fill(_y.begin(), _y.end(), SampleType(0.0));
+    std::fill(_y.begin(), _y.end(), FloatType(0.0));
 }
 
 template class NLBallisticsFilter<float>;
@@ -92,51 +92,51 @@ template class NLBallisticsFilter<double>;
 
 #pragma region NLEnvelopeFilter
 
-template<typename SampleType>
-void NLEnvelopeFilter<SampleType>::setAttack(SampleType attackMs) noexcept
+template<typename FloatType>
+void NLEnvelopeFilter<FloatType>::setAttack(FloatType attackMs) noexcept
 {
     nlbfFast.setAttack(attackMs);
     bfSlow.setAttack(sensitivityRatio * attackMs);
     _attackMs = attackMs;
 }
 
-template<typename SampleType>
-void NLEnvelopeFilter<SampleType>::setAttackNonlinearity(SampleType nonlinearityN) noexcept
+template<typename FloatType>
+void NLEnvelopeFilter<FloatType>::setAttackNonlinearity(FloatType nonlinearityN) noexcept
 {
     nlbfFast.setAttackNonlinearity(nonlinearityN);
 }
 
-template<typename SampleType>
-void NLEnvelopeFilter<SampleType>::setRelease(SampleType releaseMs) noexcept
+template<typename FloatType>
+void NLEnvelopeFilter<FloatType>::setRelease(FloatType releaseMs) noexcept
 {
     nlbfFast.setRelease(releaseMs);
     bfSlow.setRelease(sensitivityRatio * releaseMs);
     _releaseMs = releaseMs;
 }
 
-template<typename SampleType>
-void NLEnvelopeFilter<SampleType>::setReleaseNonlinearity(SampleType nonlinearityN) noexcept
+template<typename FloatType>
+void NLEnvelopeFilter<FloatType>::setReleaseNonlinearity(FloatType nonlinearityN) noexcept
 {
     nlbfFast.setReleaseNonlinearity(nonlinearityN);
 }
 
-template<typename SampleType>
-void NLEnvelopeFilter<SampleType>::setSensitivity(SampleType sensitivity) noexcept
+template<typename FloatType>
+void NLEnvelopeFilter<FloatType>::setSensitivity(FloatType value) noexcept
 {
-    sensitivityRatio = SampleType(1.0) + sensitivity;
-    nlbfFast.setAttack(sensitivityRatio * _attackMs);
-    bfSlow.setAttack(sensitivityRatio * _releaseMs);
+    sensitivityRatio =  value + 1;
+    bfSlow.setAttack(sensitivityRatio * _attackMs);
+    bfSlow.setRelease(sensitivityRatio * _releaseMs);
 }
 
-template<typename SampleType>
-void NLEnvelopeFilter<SampleType>::reset()
+template<typename FloatType>
+void NLEnvelopeFilter<FloatType>::reset()
 {
     nlbfFast.reset();
     bfSlow.reset();
 }
 
-template<typename SampleType>
-void NLEnvelopeFilter<SampleType>::prepare(SampleType sampleRate, size_t numInputChannels)
+template<typename FloatType>
+void NLEnvelopeFilter<FloatType>::prepare(FloatType sampleRate, size_t numInputChannels)
 {
     nlbfFast.prepare(sampleRate, numInputChannels);
     bfSlow.prepare(sampleRate, numInputChannels);
@@ -149,20 +149,20 @@ template class NLEnvelopeFilter<double>;
 
 #pragma region Hysteresis_Time
 
-template<typename SampleType>
-void Hysteresis_Time<SampleType>::reset()
+template<typename FloatType>
+void Hysteresis_Time<FloatType>::reset()
 {
     D1.reset();
     I1.reset();
 
-    std::fill(_x1.begin(), _x1.end(), SampleType(0.0));
+    std::fill(_x1.begin(), _x1.end(), FloatType(0.0));
     
 }
 
-template<typename SampleType>
-void Hysteresis_Time<SampleType>::prepare(SampleType sampleRate, size_t numInputChannels)
+template<typename FloatType>
+void Hysteresis_Time<FloatType>::prepare(FloatType sampleRate, size_t numInputChannels)
 {
-    Tdiv2 = SampleType(0.5) / sampleRate;
+    Tdiv2 = FloatType(0.5) / sampleRate;
     _x1.resize(numInputChannels);
 }
 
@@ -174,36 +174,36 @@ template class Hysteresis_Time<double>;
 
 #pragma region NLMM1_Freq
 
-template<typename SampleType>
-void NLMM1_Freq<SampleType>::setLinearCutoff(SampleType cutoffHz) noexcept
+template<typename FloatType>
+void NLMM1_Freq<FloatType>::setLinearCutoff(FloatType cutoffHz) noexcept
 {
-    SampleType omegaLin = MathFunctions<SampleType>::preWarp(MathConstants<SampleType>::pi2 * cutoffHz, fs2, Tdiv2);
+    FloatType omegaLin = MathFunctions<FloatType>::preWarp(MathConstants<FloatType>::pi2 * cutoffHz, fs2, Tdiv2);
     omegaLinSqrt = std::sqrt(omegaLin);
 
-    SampleType g = omegaLin * Tdiv2;
-    div1plusg = SampleType(1.0) / (SampleType(1.0) + g);
+    FloatType g = omegaLin * Tdiv2;
+    div1plusg = FloatType(1.0) / (FloatType(1.0) + g);
     Glin = g / (1 + g);
 }
 
-template<typename SampleType>
-void NLMM1_Freq<SampleType>::setNonlinearity(SampleType nonlinearityN) noexcept
+template<typename FloatType>
+void NLMM1_Freq<FloatType>::setNonlinearity(FloatType nonlinearityN) noexcept
 {
     N = nonlinearityN;
     TN = T * N;
 }
 
-template<typename SampleType>
-void NLMM1_Freq<SampleType>::reset()
+template<typename FloatType>
+void NLMM1_Freq<FloatType>::reset()
 {
     I1.reset();
 }
 
-template<typename SampleType>
-void NLMM1_Freq<SampleType>::prepare(SampleType sampleRate, size_t numInputChannels, size_t samplesPerBlock)
+template<typename FloatType>
+void NLMM1_Freq<FloatType>::prepare(FloatType sampleRate, size_t numInputChannels, size_t samplesPerBlock)
 {
-    T = SampleType(1.0) / sampleRate;
-    Tdiv2 = SampleType(0.5) / sampleRate;
-    fs2 = SampleType(2.0) * sampleRate;
+    T = FloatType(1.0) / sampleRate;
+    Tdiv2 = FloatType(0.5) / sampleRate;
+    fs2 = FloatType(2.0) * sampleRate;
 
     I1.prepare(numInputChannels);
 

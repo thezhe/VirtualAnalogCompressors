@@ -144,20 +144,6 @@ CompressorTestbenchAudioProcessorEditor::CompressorTestbenchAudioProcessorEditor
 
     rectifierAttachment.reset(new ComboBoxAttachment(valueTreeState, "rectifierType", rectifierComboBox));
 
-    //Detector Gain
-    detectorGainSlider.setTextValueSuffix(" dB");
-    detectorGainSlider.onValueChange = [this]
-    {
-        audioProcessor.dynamicsProcessor.setDetectorGain(detectorGainSlider.getValue());
-    };
-    addAndMakeVisible(detectorGainSlider);
-
-    detectorGainLabel.setText("Detector Gain", juce::dontSendNotification);
-    detectorGainLabel.attachToComponent(&detectorGainSlider, true);
-    addAndMakeVisible(detectorGainLabel);
-
-    detectorGainAttachment.reset(new SliderAttachment(valueTreeState, "detectorGain", detectorGainSlider));
-
     //Threshold
     thresholdSlider.setTextValueSuffix(" dB");
     thresholdSlider.onValueChange = [this]
@@ -172,31 +158,31 @@ CompressorTestbenchAudioProcessorEditor::CompressorTestbenchAudioProcessorEditor
 
     thresholdAttachment.reset(new SliderAttachment(valueTreeState, "threshold", thresholdSlider));
 
-    //Attack Ratio
-    positiveEnvelopeRatioSlider.onValueChange = [this]
+    //Knee
+    kneeSlider.onValueChange = [this]
     {
-        audioProcessor.dynamicsProcessor.setPositiveEnvelopeRatio(positiveEnvelopeRatioSlider.getValue());
+        audioProcessor.dynamicsProcessor.setKnee(kneeSlider.getValue());
     };
-    addAndMakeVisible(positiveEnvelopeRatioSlider);
+    addAndMakeVisible(kneeSlider);
 
-    positiveEnvelopeRatioLabel.setText("Positive Envelope Ratio", juce::dontSendNotification);
-    positiveEnvelopeRatioLabel.attachToComponent(&positiveEnvelopeRatioSlider, true);
-    addAndMakeVisible(positiveEnvelopeRatioLabel);
+    kneeLabel.setText("Knee", juce::dontSendNotification);
+    kneeLabel.attachToComponent(&kneeSlider, true);
+    addAndMakeVisible(kneeLabel);
 
-    positiveEnvelopeRatioAttachment.reset(new SliderAttachment(valueTreeState, "positiveEnvelopeRatio", positiveEnvelopeRatioSlider));
+    kneeAttachment.reset(new SliderAttachment(valueTreeState, "knee", kneeSlider));
 
-    //Release Ratio
-    negativeEnvelopeRatioSlider.onValueChange = [this]
+    //Ratio
+    ratioSlider.onValueChange = [this]
     {
-        audioProcessor.dynamicsProcessor.setNegativeEnvelopeRatio(negativeEnvelopeRatioSlider.getValue());
+        audioProcessor.dynamicsProcessor.setRatio(ratioSlider.getValue());
     };
-    addAndMakeVisible(negativeEnvelopeRatioSlider);
+    addAndMakeVisible(ratioSlider);
 
-    negativeEnvelopeRatioLabel.setText("Negative Envelope Ratio", juce::dontSendNotification);
-    negativeEnvelopeRatioLabel.attachToComponent(&negativeEnvelopeRatioSlider, true);
-    addAndMakeVisible(negativeEnvelopeRatioLabel);
+    ratioLabel.setText("Ratio", juce::dontSendNotification);
+    ratioLabel.attachToComponent(&ratioSlider, true);
+    addAndMakeVisible(ratioLabel);
 
-    negativeEnvelopeRatioAttachment.reset(new SliderAttachment(valueTreeState, "negativeEnvelopeRatio", negativeEnvelopeRatioSlider));
+    ratioAttachment.reset(new SliderAttachment(valueTreeState, "ratio", ratioSlider));
 
     //Attack
     attackSlider.setTextValueSuffix(" ms");
@@ -320,7 +306,7 @@ CompressorTestbenchAudioProcessorEditor::CompressorTestbenchAudioProcessorEditor
 #endif
 
     //Window Size
-    setSize (400, 2 * marginT + 24 * sliderDY);
+    setSize (400, 2 * marginT + 22 * sliderDY);
 }
 
 CompressorTestbenchAudioProcessorEditor::~CompressorTestbenchAudioProcessorEditor()
@@ -354,23 +340,22 @@ void CompressorTestbenchAudioProcessorEditor::resized()
     stereoLinkButton.setBounds(marginL, marginT + 7 * sliderDY, sliderWidth, sliderHeight);
     preFilterComboBox.setBounds(marginL, marginT + 8 * sliderDY, sliderWidth, sliderHeight);
     rectifierComboBox.setBounds(marginL, marginT + 9 * sliderDY, sliderWidth, sliderHeight);
-    detectorGainSlider.setBounds(marginL, marginT + 10 * sliderDY, sliderWidth, sliderHeight);
-    thresholdSlider.setBounds(marginL, marginT + 11 * sliderDY, sliderWidth, sliderHeight);
-    positiveEnvelopeRatioSlider.setBounds(marginL, marginT + 12 * sliderDY, sliderWidth, sliderHeight);
-    negativeEnvelopeRatioSlider.setBounds(marginL, marginT + 13 * sliderDY, sliderWidth, sliderHeight);
-    attackSlider.setBounds(marginL, marginT + 14 * sliderDY, sliderWidth, sliderHeight);
-    attackNonlinearitySlider.setBounds(marginL, marginT + 15 * sliderDY, sliderWidth, sliderHeight);
-    releaseSlider.setBounds(marginL, marginT + 16 * sliderDY, sliderWidth, sliderHeight);
-    releaseNonlinearitySlider.setBounds(marginL, marginT + 17 * sliderDY, sliderWidth, sliderHeight);    
-    sensitivitySlider.setBounds(marginL, marginT + 18 * sliderDY, sliderWidth, sliderHeight);
+    thresholdSlider.setBounds(marginL, marginT + 10 * sliderDY, sliderWidth, sliderHeight);
+    kneeSlider.setBounds(marginL, marginT + 11 * sliderDY, sliderWidth, sliderHeight);
+    ratioSlider.setBounds(marginL, marginT + 12 * sliderDY, sliderWidth, sliderHeight);
+    attackSlider.setBounds(marginL, marginT + 13 * sliderDY, sliderWidth, sliderHeight);
+    attackNonlinearitySlider.setBounds(marginL, marginT + 14 * sliderDY, sliderWidth, sliderHeight);
+    releaseSlider.setBounds(marginL, marginT + 15 * sliderDY, sliderWidth, sliderHeight);
+    releaseNonlinearitySlider.setBounds(marginL, marginT + 16 * sliderDY, sliderWidth, sliderHeight);    
+    sensitivitySlider.setBounds(marginL, marginT + 17 * sliderDY, sliderWidth, sliderHeight);
 
-    wetSlider.setBounds(marginL, marginT + 19 * sliderDY, sliderWidth, sliderHeight);
-    drySlider.setBounds(marginL, marginT + 20 * sliderDY, sliderWidth, sliderHeight);
+    wetSlider.setBounds(marginL, marginT + 18 * sliderDY, sliderWidth, sliderHeight);
+    drySlider.setBounds(marginL, marginT + 19 * sliderDY, sliderWidth, sliderHeight);
 
 #ifdef DEBUG
 
-    debugOnlySectionLabel.setBounds(labelL, marginT + 21 * sliderDY, labelWidth, sliderHeight);
-    outputComboBox.setBounds(marginL, marginT + 22 * sliderDY, sliderWidth, sliderHeight);
+    debugOnlySectionLabel.setBounds(labelL, marginT + 20 * sliderDY, labelWidth, sliderHeight);
+    outputComboBox.setBounds(marginL, marginT + 21 * sliderDY, sliderWidth, sliderHeight);
 
 #endif
 

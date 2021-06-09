@@ -66,7 +66,7 @@ parameters
         (
             "inputSaturation",
             "Saturation",
-            juce::NormalisableRange<float>(0.f, 2000.f),
+            juce::NormalisableRange<float>(0.f, 5000.f, 0.f, 0.1f),
             0.f
         ),
 
@@ -117,14 +117,6 @@ parameters
 
         std::make_unique<juce::AudioParameterFloat>
         (
-            "detectorGain",
-            "Detector Gain",
-            juce::NormalisableRange<float>(-6.f, 24.f),
-            0.f
-        ),
-
-        std::make_unique<juce::AudioParameterFloat>
-        (
             "threshold",
             "Threshold",
             juce::NormalisableRange<float>(-60.f, 0.f),
@@ -133,17 +125,17 @@ parameters
 
         std::make_unique<juce::AudioParameterFloat>
         (
-            "positiveEnvelopeRatio",
-            "Positive Envelope Ratio",
-            juce::NormalisableRange<float>(0.5f, 25.f),
-            1.f
+
+            "knee",
+            "Knee",
+            juce::NormalisableRange<float>(0.f, 5.f),
+            0.f
         ),
 
         std::make_unique<juce::AudioParameterFloat>
         (
-
-            "negativeEnvelopeRatio",
-            "Negative Envelope Ratio",
+            "ratio",
+            "Ratio",
             juce::NormalisableRange<float>(0.5f, 25.f),
             1.f
         ),
@@ -209,10 +201,6 @@ parameters
 }
 CompressorTestbenchAudioProcessor::~CompressorTestbenchAudioProcessor()
 {
-#ifdef DEBUG
-    //Gather system specs
-    //DebugTools::isAtomicLockFree();
-#endif
 }
 
 //==============================================================================

@@ -15,39 +15,53 @@ namespace VA
 
 #pragma region Multimode1
 
-template<typename SampleType>
-void Multimode1<SampleType>::setCutoff(SampleType cutoffHz) noexcept
+template<typename FloatType>
+void Multimode1<FloatType>::setCutoff(FloatType cutoffHz) noexcept
 {
-    setOmega(MathConstants<SampleType>::pi2 * cutoffHz);
+    setOmega(MathConstants<FloatType>::pi2 * cutoffHz);
 }
 
-template<typename SampleType>
-void Multimode1<SampleType>::setTau(SampleType tauMs) noexcept
+template<typename FloatType>
+void Multimode1<FloatType>::setTau(FloatType tauMs) noexcept
 {
-    setOmega(SampleType(1000.0) / tauMs);
+    setOmega(FloatType(1000.0) / tauMs);
 }
 
-template<typename SampleType>
-SampleType Multimode1<SampleType>::tauToG(SampleType tauMs) noexcept
+template<typename FloatType>
+FloatType Multimode1<FloatType>::tauToG(FloatType tauMs) noexcept
 {
-    SampleType g = tan(Tdiv2 * SampleType(1000.0) / tauMs);
-    return g / (SampleType(1.0) + g);
+    FloatType g = tan(Tdiv2 * FloatType(1000.0) / tauMs);
+    return g / (FloatType(1.0) + g);
 }
 
-template<typename SampleType>
-void Multimode1<SampleType>::reset()
+template<typename FloatType>
+void Multimode1<FloatType>::reset()
 {
     I1.reset();
 }
 
-template<typename SampleType>
-void Multimode1<SampleType>::prepare(SampleType sampleRate, size_t numInputChannels)
+template<typename FloatType>
+void Multimode1<FloatType>::prepare(FloatType sampleRate, size_t numInputChannels)
 {
     //filter
     I1.prepare(numInputChannels);
     
     //spec
-    Tdiv2 = SampleType(0.5) / sampleRate;
+    Tdiv2 = FloatType(0.5) / sampleRate;
+
+    //LUT
+    FloatType OmegaLimit = MathConstants<FloatType>::pi2 * sampleRate * 0.499;
+    OmegaToGLUT.prepare
+    (
+        [this](FloatType x)
+        {
+            FloatType g = std::tan(x * Tdiv2);
+            return g / (FloatType(1.0) + g);
+        },
+        0,
+        OmegaLimit,
+        256
+    );
 }
 
 template class Multimode1 <float>;
@@ -57,27 +71,27 @@ template class Multimode1 <double>;
 
 #pragma region BallisticsFilter
 
-template<typename SampleType>
-void BallisticsFilter<SampleType>::setAttack(SampleType attackMs) noexcept
+template<typename FloatType>
+void BallisticsFilter<FloatType>::setAttack(FloatType attackMs) noexcept
 {
     Ga = mm1.tauToG(attackMs);
 }
 
-template<typename SampleType>
-void BallisticsFilter<SampleType>::setRelease(SampleType releaseMs) noexcept
+template<typename FloatType>
+void BallisticsFilter<FloatType>::setRelease(FloatType releaseMs) noexcept
 {
     Gr = mm1.tauToG(releaseMs);
 }
 
-template<typename SampleType>
-void BallisticsFilter<SampleType>::reset()
+template<typename FloatType>
+void BallisticsFilter<FloatType>::reset()
 {
     mm1.reset();
 }
 
 
-template<typename SampleType>
-void BallisticsFilter<SampleType>::prepare(SampleType sampleRate, size_t numInputChannels)
+template<typename FloatType>
+void BallisticsFilter<FloatType>::prepare(FloatType sampleRate, size_t numInputChannels)
 {
     mm1.prepare(sampleRate, numInputChannels);
 }
@@ -89,11 +103,11 @@ template class BallisticsFilter<double>;
 
 #pragma region MonoConverter
 
-template <typename SampleType>
-void MonoConverter<SampleType>::prepare(size_t numInputChannels)
+template <typename FloatType>
+void MonoConverter<FloatType>::prepare(size_t numInputChannels)
 {
     numChannels = numInputChannels;
-    divNumChannels = SampleType(1.0) / numInputChannels;
+    divNumChannels = FloatType(1.0) / numInputChannels;
 }
 
 template class MonoConverter<float>;
@@ -103,8 +117,8 @@ template class MonoConverter<double>;
 
 #pragma region KFilter
 
-template<typename SampleType>
-void KFilter<SampleType>::reset()
+template<typename FloatType>
+void KFilter<FloatType>::reset()
 {
     std::fill(_x1.begin(), _x1.end(), 0.0);
     std::fill(_x2.begin(), _x2.end(), 0.0);
@@ -112,17 +126,17 @@ void KFilter<SampleType>::reset()
     std::fill(_y2.begin(), _y2.end(), 0.0);
 }
 
-template<typename SampleType>
-void KFilter<SampleType>::prepare(SampleType sampleRate, size_t numInputChannels)
+template<typename FloatType>
+void KFilter<FloatType>::prepare(FloatType sampleRate, size_t numInputChannels)
 {
     //Parameters
-    SampleType Vh = SampleType(1.58), Vb = SampleType(1.26), Vl = SampleType(1);
-    SampleType Q = SampleType(0.71);
-    SampleType fc = SampleType(1681.97);
+    FloatType Vh = FloatType(1.58), Vb = FloatType(1.26), Vl = FloatType(1);
+    FloatType Q = FloatType(0.71);
+    FloatType fc = FloatType(1681.97);
 
     //Prewarped angular cutoff
-    SampleType g = tan(VA::MathConstants<SampleType>::pi * fc / sampleRate);
-    SampleType gSq = g * g;
+    FloatType g = tan(VA::MathConstants<FloatType>::pi * fc / sampleRate);
+    FloatType gSq = g * g;
 
     //Calculate Coefficients
     a1 = 2 * (gSq - 1);
@@ -132,7 +146,7 @@ void KFilter<SampleType>::prepare(SampleType sampleRate, size_t numInputChannels
     b2 = Vl * gSq - Vb * g / Q + Vh;
 
     //Normalize to a0
-    SampleType a0 = gSq + g / Q + 1;
+    FloatType a0 = gSq + g / Q + 1;
     a1 /= a0;
     a2 /= a0;
     b0 /= a0;
@@ -155,14 +169,14 @@ template class KFilter<double>;
 
 #pragma region Detector
 
-template<typename SampleType>
-void Detector<SampleType>::reset()
+template<typename FloatType>
+void Detector<FloatType>::reset()
 {
     kFilter.reset();
 }
 
-template<typename SampleType>
-void Detector<SampleType>::prepare(SampleType sampleRate, size_t samplesPerBlock, size_t numInputChannels)
+template<typename FloatType>
+void Detector<FloatType>::prepare(FloatType sampleRate, size_t samplesPerBlock, size_t numInputChannels)
 {
     kFilter.prepare(sampleRate, numInputChannels);
 }

@@ -1,0 +1,36 @@
+/** Title: GraphTest
+
+Currently for mono effects only
+Uses VA::JACutoff to modulate VA::Onepole cutoff
+*/
+
+graph GraphTest [[main]]
+{
+    input stream float audioIn;
+    output stream float audioOut;
+
+    input
+    {
+        jaCutoff.frequency frequency;
+        jaCutoff.nonlinearity nonlinearity;
+        jaCutoff.dBMirr dBMirr;
+        jaCutoff.dBMan dBMan;
+    }
+
+    let
+    { 
+        jaCutoff = VA::JACutoff::Graph;
+
+        onepole = VA::Onepole::Processor;
+    }
+
+    connection
+    {        
+        audioIn -> onepole.in, jaCutoff.in;
+
+        jaCutoff.omegadiv2 -> onepole.omegadiv2;
+        
+        onepole.out -> audioOut;
+    }
+}
+

@@ -59,7 +59,7 @@ public:
     //Non JUCE Code Below
     //==============================================================================
 
-    //Processors
+    //filters
     VA::DynamicsProcessor<float> dynamicsProcessor;
     VA::NLMM1_Freq<float> nlMM1;
 

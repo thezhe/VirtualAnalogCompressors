@@ -25,8 +25,14 @@ enum class Multimode1FilterType
     Highpass
 };
 
-/** First-order Topology Preserving Transform multimode filter (MM1) */
-template <typename SampleType>
+/// <summary>
+/// First-order multimode filter composed of high-pass and low-pass outputs
+/// </summary>
+/// <remarks>
+/// Implemented with Topology Preserving Transform.
+/// Source: https://www.kvraudio.com/forum/viewtopic.php?t=350246
+/// </remarks>
+template <typename FloatType>
 class Multimode1
 {
 public:
@@ -36,7 +42,6 @@ public:
     /// <summary>
     /// Set the filter type
     /// </summary>
-    /// <param name="type">Choices include high-pass and low-pass</param>
     void setFilterType(FilterType type) noexcept
     {
         filterType = type;
@@ -48,98 +53,105 @@ public:
     /// <remarks>
     /// This function is for programmatically modulating cutoff at audio rates
     /// </remarks>
-    /// <param name="Omega">Omega should be in the range [0, Nyquist)</param>
-    void setOmega(SampleType Omega) noexcept
+    /// <param name="Omega">Omega should be in the range [0, inf), although values greater than Nyquist will be mapped to Nyquist first. </param>
+    void setOmega(FloatType Omega) noexcept
     {
-        auto g = std::tan(Omega * Tdiv2);
-        G = g / (SampleType(1.0) + g);
+        G = OmegaToGLUT.processSampleMaxChecked(Omega);
     }
 
-    /** Set the filter cutoff frequency in hertz
-    *
-    *   Note: This method doesn't perform checks. Make sure cutoff is below Nyquist before calling.
-    */
-    void setCutoff(SampleType cutoffHz) noexcept;
+    /// <summary>
+    /// Set the cutoff frequency in hertz
+    /// </summary>
+    void setCutoff(FloatType value) noexcept;
 
-    /** Set the time in miliseconds for the step response to reach 1-1/e */
-    void setTau(SampleType tauMs) noexcept;
+    /// <summary>
+    /// Set the time in milliseconds for the step resposne to reach 1-1/e
+    /// </summary>
+    void setTau(FloatType value) noexcept;
 
-    /** Convert tau in miliseconds to G
-    *
-    *   Note 1: G is the total integrator gain after prewarping and resolving unit delays.
-    *
-    *   Note 2: This method doesn't perform checks. Make sure cutoff is below Nyquist before calling.
-    */
-    SampleType tauToG(SampleType tauMs) noexcept;
+    /// <summary>
+    /// Map tau in milliseconds to G
+    /// </summary>
+    FloatType tauToG(FloatType value) noexcept;
 
-    /** Set the internal integrator input gain
-    *
-    *   Note 1: G is the total integrator input gain after prewarping and resolving unit delays.
-    *
-    *   Note 2: This method doesn't perform checks. Make sure cutoff is below Nyquist before calling.
-    */
-    void setG(SampleType newG) noexcept
+    /// <summary>
+    /// Set the integrator input gain <c>G</c>
+    /// </summary>
+    void setG(FloatType value) noexcept
     {
-        G = newG;
+        G = value;
     }
 
-    /** Reset the internal state */
+    /// <summary>
+    /// Reset the internal state
+    /// </summary>
     void reset();
 
-    /** Prepare the processing specifications */
-    void prepare(SampleType sampleRate, size_t numInputChannels);
+    /// <summary>
+    /// Prepare the processing specifications
+    /// </summary>
+    void prepare(FloatType sampleRate, size_t numInputChannels);
 
-    /** Process a sample given a channel */
-    SampleType processSample(SampleType x, size_t channel) noexcept
+    /// <summary>
+    /// Process a sample given the channel
+    /// </summary>
+    FloatType processSample(FloatType x, size_t channel) noexcept
     {
-        SampleType s = I1.getState(channel);
+        FloatType s = I1.getState(channel);
 
         //filter
-        SampleType v = (x - s) * G;
-        SampleType y = I1.processSample(v, channel);
+        FloatType v = (x - s) * G;
+        FloatType y = I1.processSample(v, channel);
 
         //filter type
         return filterType == FilterType::Lowpass ? y : x - y;
     }
 
-
 private:
+
+    //LUT
+    static LookupTable<FloatType> OmegaToGLUT;
 
     //parameters
     FilterType filterType = FilterType::Lowpass;
-    std::atomic<SampleType> G{ SampleType(1.0) };
+    std::atomic<FloatType> G{ FloatType(1.0) };
 
     //filter
-    Integrator<SampleType> I1;
+    Integrator<FloatType> I1;
 
     //spec
-    SampleType Tdiv2{ 0.5 };
+    FloatType Tdiv2{ 0.5 };
 
 };
+
+//Static object initialization
+//https://stackoverflow.com/questions/29552037/c-declaring-a-static-object-in-a-class
+template<typename FloatType>
+LookupTable<FloatType> Multimode1<FloatType>::OmegaToGLUT;
 
 #pragma endregion
 
 #pragma region BallisticsFilter
 
 /** Ballistics Filter based on Multimode1*/
-template <typename SampleType>
+template <typename FloatType>
 class BallisticsFilter
 {
 public:
 
     /** Set the time in miliseconds for the step response to reach 1-1/e */
-    void setAttack(SampleType attackMs) noexcept;
+    void setAttack(FloatType attackMs) noexcept;
 
     /** Set the time in miliseconds for inversed step response to reach 1/e */
-    void setRelease(SampleType releaseMs) noexcept;
+    void setRelease(FloatType releaseMs) noexcept;
 
     /** Set the processing specifications */
-    void prepare(SampleType sampleRate, size_t numInputChannels);
+    void prepare(FloatType sampleRate, size_t numInputChannels);
 
     /** Reset the internal state */
     void reset();
 
-    SampleType processSample(SampleType x, size_t channel) noexcept
+    FloatType processSample(FloatType x, size_t channel) noexcept
     {
         //branching cutoff
         mm1.setG(x < y ? Gr : Ga);
@@ -152,13 +164,13 @@ public:
 private:
 
     //parameters
-    SampleType Gr = SampleType(0.5), Ga = SampleType(0.5);
+    FloatType Gr = FloatType(0.5), Ga = FloatType(0.5);
 
     //filter
-    Multimode1<SampleType> mm1;
+    Multimode1<FloatType> mm1;
 
     //state
-    SampleType y{ 0 };
+    FloatType y{ 0 };
 };
 
 #pragma endregion
@@ -174,7 +186,7 @@ private:
 //};
 //
 ///** Second-order Topology Preserving Transform state variable filter (SVF) */
-//template <typename SampleType>
+//template <typename FloatType>
 //class StateVariableFilter
 //{
 //public:
@@ -193,7 +205,7 @@ private:
 //    *
 //    *   Note 2: Do not use negative omega values.
 //    */
-//    void setOmega(SampleType omega) noexcept
+//    void setOmega(FloatType omega) noexcept
 //    {
 //    }
 //
@@ -201,22 +213,22 @@ private:
 //    *
 //    *   Note: This method doesn't perform checks. Make sure cutoff is below Nyquist before calling.
 //    */
-//    void setCutoff(SampleType cutoffHz) noexcept;
+//    void setCutoff(FloatType cutoffHz) noexcept;
 //
 //    /** Set the quality factor */
-//    void setQuality(SampleType qualityQ) noexcept;
+//    void setQuality(FloatType qualityQ) noexcept;
 //
 //    /** Reset the internal state */
 //    void reset();
 //
 //    /** Prepare the processing specifications */
-//    void prepare(SampleType sampleRate, size_t numInputChannels);
+//    void prepare(FloatType sampleRate, size_t numInputChannels);
 //
 //    /** Process a sample given a channel */
-//    SampleType processSample(SampleType x, size_t channel) noexcept
+//    FloatType processSample(FloatType x, size_t channel) noexcept
 //    {
-//        SampleType& s1 = _s1[channel];
-//        SampleType& s2 = _s2[channel];
+//        FloatType& s1 = _s1[channel];
+//        FloatType& s2 = _s2[channel];
 //
 //        //filter
 //
@@ -233,12 +245,12 @@ private:
 //        case FilterType::Bandpass:
 //            break;
 //        default: //FilterType::Highpass:
-//            SampleType yHP = (x - g1 * s1 - s2) * d;
+//            FloatType yHP = (x - g1 * s1 - s2) * d;
 //
-//            SampleType v1 = g * yHP;
-//            s1 += SampleType(2.0) * v1;
+//            FloatType v1 = g * yHP;
+//            s1 += FloatType(2.0) * v1;
 //
-//            SampleType v2 = g * y;
+//            FloatType v2 = g * y;
 //        }
 //    }
 //
@@ -247,15 +259,15 @@ private:
 //
 //    //parameters
 //    std::atomic<FilterType> filterType = FilterType::Lowpass;
-//    SampleType g1, d, g;
-//    SampleType twoG;
+//    FloatType g1, d, g;
+//    FloatType twoG;
 //
 //    //state
-//    std::vector<SampleType> _s1{ 2 };
-//    std::vector<SampleType> _s2{ 2 };
+//    std::vector<FloatType> _s1{ 2 };
+//    std::vector<FloatType> _s2{ 2 };
 //
 //    //spec
-//    SampleType Tdiv2{ 0.5 };
+//    FloatType Tdiv2{ 0.5 };
 //
 //};
 //
@@ -264,7 +276,7 @@ private:
 #pragma region MonoConverter
 
 /** Multi-channel to mono converter */
-template<typename SampleType>
+template<typename FloatType>
 class MonoConverter
 {
 public:
@@ -272,9 +284,9 @@ public:
     void prepare(size_t numInputChannels);
 
     /** Process a frame given a buffer */
-    SampleType processFrame(SampleType** buffer, size_t frame) noexcept
+    FloatType processFrame(FloatType** buffer, size_t frame) noexcept
     {
-        SampleType y = buffer[0][frame];
+        FloatType y = buffer[0][frame];
 
         //sum channels
         for (size_t ch = 1; ch < numChannels; ++ch)
@@ -284,9 +296,9 @@ public:
     }
 
     /** Process a frame */
-    SampleType processFrame(std::vector <SampleType>& frame) noexcept
+    FloatType processFrame(std::vector <FloatType>& frame) noexcept
     {
-        SampleType y = frame[0];
+        FloatType y = frame[0];
 
         //sum channels
         for (size_t ch = 1; ch < numChannels; ++ch)
@@ -299,7 +311,7 @@ private:
 
     //spec
     size_t numChannels{ 1 };
-    SampleType divNumChannels{ 1 };
+    FloatType divNumChannels{ 1 };
 };
 
 #pragma endregion
@@ -310,7 +322,7 @@ private:
 *
 *   https://www.eecs.qmul.ac.uk/~josh/documents/2012/MansbridgeFinnReiss-AES1322012-AutoMultitrackFaders.pdf
 */
-template <typename SampleType>
+template <typename FloatType>
 class KFilter
 {
 public:
@@ -319,10 +331,10 @@ public:
     void reset();
 
     /** Prepare the processing specifications */
-    void prepare(SampleType sampleRate, size_t numInputChannels);
+    void prepare(FloatType sampleRate, size_t numInputChannels);
 
     /** Process a sample in the specified channel */
-    SampleType processSample(SampleType x, size_t channel) noexcept
+    FloatType processSample(FloatType x, size_t channel) noexcept
     {
         auto& x1 = _x1[channel];
         auto& x2 = _x2[channel];
@@ -345,10 +357,10 @@ public:
 private:
 
     //filter coefficients
-    SampleType b0{ 0 }, b1{ 0 }, b2{ 0 }, a1{ 0 }, a2{ 0 };
+    FloatType b0{ 0 }, b1{ 0 }, b2{ 0 }, a1{ 0 }, a2{ 0 };
 
     //state
-    std::vector<SampleType> _x1{ 2 }, _x2{ 2 }, _y1{ 2 }, _y2{ 2 };
+    std::vector<FloatType> _x1{ 2 }, _x2{ 2 }, _y1{ 2 }, _y2{ 2 };
 };
 
 #pragma endregion
@@ -368,7 +380,7 @@ enum class DetectorRectifierType
     FullWaveRect
 };
 
-template<typename SampleType>
+template<typename FloatType>
 class Detector
 {
 public:
@@ -389,10 +401,10 @@ public:
     void reset();
 
     /** Prepare the processing specifications */
-    void prepare(SampleType sampleRate, size_t samplesPerBlock, size_t numInputChannels);
+    void prepare(FloatType sampleRate, size_t samplesPerBlock, size_t numInputChannels);
 
     /** Process a sample given a frame and channel */
-    SampleType processSample(SampleType x, size_t channel) noexcept
+    FloatType processSample(FloatType x, size_t channel) noexcept
     {
         //Pre-filter and Rectifier
         return processRectifierInternal(processPrefilterInternal(x, channel));
@@ -401,7 +413,7 @@ public:
 private:
 
     //helper functions
-    SampleType processPrefilterInternal(SampleType x, size_t channel)
+    FloatType processPrefilterInternal(FloatType x, size_t channel)
     {
         //Detector
         switch (preFilterType)
@@ -414,7 +426,7 @@ private:
         }
     }
 
-    SampleType processRectifierInternal(SampleType x)
+    FloatType processRectifierInternal(FloatType x)
     {
         switch (rectifierType)
         {
@@ -422,11 +434,11 @@ private:
             return std::abs(x);
             break;
         case DetectorRectifierType::HalfWaveRect:
-            return (std::exp(x) - SampleType(1.0)) / (std::exp(SampleType(1.0)) - SampleType(1.0));
+            return (std::exp(x) - FloatType(1.0)) / (std::exp(FloatType(1.0)) - FloatType(1.0));
             break;
         default: //DetectorRectifierType::FullWaveRect:
-            return x > 0 ? (std::exp(x) - SampleType(1.0)) / (std::exp(SampleType(1.0)) - SampleType(1.0))
-                : (std::exp(-x) - SampleType(1.0)) / (std::exp(SampleType(1.0)) - SampleType(1.0));
+            return x > 0 ? (std::exp(x) - FloatType(1.0)) / (std::exp(FloatType(1.0)) - FloatType(1.0))
+                : (std::exp(-x) - FloatType(1.0)) / (std::exp(FloatType(1.0)) - FloatType(1.0));
             break;
         }
     }
@@ -436,7 +448,7 @@ private:
     DetectorRectifierType rectifierType = DetectorRectifierType::Peak;
 
     //filter
-    KFilter<SampleType> kFilter;
+    KFilter<FloatType> kFilter;
 };
 
 #pragma endregion
