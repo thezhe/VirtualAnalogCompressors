@@ -6,31 +6,31 @@ Uses VA::JACutoff to modulate VA::Onepole cutoff
 
 graph GraphTest [[main]]
 {
-    input stream float audioIn;
-    output stream float audioOut;
+    input stream SampleType audioIn;
+    output stream SampleType audioOut;
 
-    input
-    {
-        jaCutoff.frequency frequency;
-        jaCutoff.nonlinearity nonlinearity;
-        jaCutoff.dBMirr dBMirr;
-        jaCutoff.dBMan dBMan;
-    }
+    using SampleType = float32;
+    using CoeffType = float64;
+    const int updateInterval = 16;
+    namespace va = VA(SampleType, CoeffType, updateInterval);
 
     let
     { 
-        jaCutoff = VA::JACutoff::Graph;
+        jaCutoff = va::DEBUG::JACutoff::Graph(1000, 0.1f, 0, 1.f, 10000.f, 1.f);
+        ja = va::DEBUG::JA::Graph(20.f, 0.75f, 0.25f);
 
-        onepole = VA::Onepole::Processor;
+        onepole = va::Onepole::Processor;
     }
 
     connection
     {        
-        audioIn -> onepole.in, jaCutoff.in;
+        audioIn -> ja.in, jaCutoff.in, onepole.in;
 
-        jaCutoff.omegadiv2 -> onepole.omegadiv2;
-        
+        jaCutoff.omegadiv2->  onepole.omegadiv2;
+
         onepole.out -> audioOut;
+
+
     }
 }
 
