@@ -1,4 +1,4 @@
-function WaveshaperPlot(audiofile1, audiofile2, figNum, dB, dotSize)
+function WaveshaperPlot(audiofile1, audiofile2, figNum, dB, dot)
 %WAVESHAPERPLOT Plot samples of audiofile1 vs audiofile2
 
 x = audioread(audiofile1);
@@ -30,7 +30,11 @@ end
 xlabel(xlab);
 ylabel(ylab);
 title(yName);
-scatter(x(1:minLength), y(1:minLength), dotSize, 'filled');
+if (dot)
+    scatter(x(1:minLength), y(1:minLength), 3, 'filled');
+else
+    plot(x(1:minLength), y(1:minLength), 'LineWidth', 2);
+end
 hold off
 end
 

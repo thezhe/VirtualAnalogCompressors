@@ -84,3 +84,93 @@ processor test
         loop { advance(); results << -1; } // a -1 must be emitted to make the test terminate
     }
 }
+
+## processor
+
+//Non FMA
+processor test
+{
+    output event int results;
+
+    void run()
+    {
+        float y, x, v, s;
+        const float G = 4.f;
+        loop(10000000)
+        {
+            ++x;
+            ++s;
+            v = G*x;
+            y = v + s;
+            x = v + y;
+        }
+        
+        results << 1;
+
+        loop { advance(); results << -1; } // a -1 must be emitted to make the test terminate
+    }
+}
+
+## processor
+
+//FMA
+processor test
+{
+    output event int results;
+
+    void run()
+    {
+        float y, x, v, s;
+        const float G = 4.f;
+        loop(10000000)
+        {
+            ++x;
+            ++s;
+            y = G * x + s;
+            x = G * x + y;
+        }
+        
+        results << 1;
+
+        loop { advance(); results << -1; } // a -1 must be emitted to make the test terminate
+    }
+}
+
+## processor
+
+//Riemann
+processor test
+{
+    output event int results;
+
+    void run()
+    {
+        float y, x, v, s;
+        const float G = 4.f;
+        loop(1000)
+        {
+            ++x;
+            ++s;
+            y = G * x + s;
+        }
+        
+        results << 1;
+
+        loop { advance(); results << -1; } // a -1 must be emitted to make the test terminate
+    }
+}
+
+## processor
+
+//blank test
+processor test
+{
+    output event int results;
+
+    void run()
+    {
+        results << 1;
+
+        loop { advance(); results << -1; } // a -1 must be emitted to make the test terminate
+    }
+}

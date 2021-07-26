@@ -3,11 +3,11 @@ function SignalPlot(audiofile, figNum, lineWidth)
 
 %Get y and t vectors and the figName
 [y, fs] = audioread(audiofile);
+fs
 xInfo = audioinfo(audiofile);
 [~, figName,~] = fileparts(xInfo.Filename);
 T = 1/fs;
 t = 0:T:xInfo.Duration-T;
-
 %Plot with y limits equal to [-1, 1]
 figure(figNum);
 hold on
